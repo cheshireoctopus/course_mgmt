@@ -1,0 +1,23 @@
+{
+  "name": "fewd_class_mgmt",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "dev-start": "nodemon"
+  },
+  "author": "cheshrieoctopus",
+  "license": "ISC",
+  "dependencies": {
+    "backbone": "^1.2.3",
+    "body-parser": "^1.14.1",
+    "express": "^4.13.3",
+    "react": "^0.14.3",
+    "request": "^2.67.0",
+    "underscore": "^1.8.3"
+  },
+  "devDependencies": {
+    "dotenv": "^1.2.0",
+    "nodemon": "^1.8.1"
+  }
+}
