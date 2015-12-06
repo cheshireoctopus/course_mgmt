@@ -1,40 +1,37 @@
 require('dotenv').load()
-
 var config = require('./config')
 
 var express = require('express')
 var path = require('path')
 
-var request = require('request')
+var githubRouter = require(config.paths.GITHUB + '/github.js')
 
 var app = express()
+
+// Set template engine
+app.set('view engine', 'jade')
+app.set('views', config.paths.PUBLIC)
 
 // Middleware
 app.use(express.static(config.paths.PUBLIC))
 
-// Routes
-app.get('/', function (req, res) {
-	res.sendFile(path.join(config.paths.PUBLIC))
+app.use(function (req, res, next) {
+	console.log('Routing...', req.url)
+	next()
 })
 
-// GET github username
-app.get('/user', function (req, res) {
-	var username = req.query['username']
+// Catch-all error handler
+app.use(function (err, req, res, next) {
+	console.log(err.stack)
+	res.status(500)
+	res.render('error', { error: err });
+})
 
-	var options = {
-		url: config.githubAPI.getUser + username,
-		headers: {
-			'User-Agent': 'cheshireoctopus'
-		}
-	}
+// Routes
+app.use('/github', githubRouter)
 
-	var resp = request(options, function (error, response, body) {
-  		if (!error && response.statusCode == 200) {
-    		console.log(body)
-    		res.send(body)
-		}
-	})
-
+app.get('/', function (req, res) {
+	res.render('index')
 })
 
 // Get turnt
