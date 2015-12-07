@@ -6,7 +6,8 @@ html
         title FEWD | Course Mgmt
     body
         h1 FEWD Course Mgmt
-        form(action='/github/user', method='get')
+        form#github-user
             input(type='text', name='username')
             input(type='submit')
+        #github-user-info
         script(src='js/build/bundle.js')

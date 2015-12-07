@@ -13,9 +13,9 @@ router.use(function (req, res, next) {
 	next()
 })
 
-router.route('/user')
+router.route('/user/:username')
 	.get(function (req, res) {
-		var username = req.query['username']
+		var username = req.params.username
 		var options = {
 			url: config.githubAPI.getUser + username,
 			headers: {
@@ -25,7 +25,7 @@ router.route('/user')
 
 		var resp = request(options, function (error, response, body) {
 	  		if (!error && response.statusCode == 200) {
-	    		console.log(body)
+	    		res.setHeader('Content-Type', 'application/json')
 	    		res.send(body)
 			}
 		})
