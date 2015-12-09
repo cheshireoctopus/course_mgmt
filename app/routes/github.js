@@ -23,10 +23,28 @@ router.route('/user/:username')
 			}
 		}
 
-		var resp = request(options, function (error, response, body) {
+		var req = request(options, function (error, response, body) {
 	  		if (!error && response.statusCode == 200) {
 	    		res.setHeader('Content-Type', 'application/json')
 	    		res.send(body)
+			}
+		})
+	})
+
+router.route('/repos/:username')
+	.get(function (req, res) {
+		var username = req.params.username
+		var options = {
+			url: config.githubAPI.getUser + username + '/repos' ,
+			headers: {
+				'User-Agent': process.env.githubUsername
+			}
+		}
+
+		var req = request(options, function (error, response, body) {
+			if (!error && response.statusCode == 200) {
+				res.setHeader('Content-Type', 'application/json')
+				res.send(body)
 			}
 		})
 	})

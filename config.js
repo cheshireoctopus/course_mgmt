@@ -4,6 +4,6 @@ module.exports = {
 		GITHUB: './app/routes/'
 	},
 	githubAPI: {
-		getUser: 'https://api.github.com/users/'
+		getUser: 'https://api.github.com/users/',
 	}
 }

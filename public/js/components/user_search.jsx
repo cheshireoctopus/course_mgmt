@@ -21,6 +21,7 @@ module.exports = React.createClass({
 					<input ref="username" type="text" placeholder="GitHub User Name" name="username" />
 					<button onClick={this.userSearch}>Search</button>
 				</form>
+				<hr />
 				{this.state.userInfo ? this.renderUserInfo() : false}
 			</div>
 		)
@@ -41,7 +42,7 @@ module.exports = React.createClass({
 
 		$.get('/github/user/' + username)
 		.done(function (data) {
-			console.log(this)
+			console.log(data)
 			this.buildUserInfo(data)
 		}.bind(this))
 		.fail(function (xhr) {
@@ -54,6 +55,7 @@ module.exports = React.createClass({
 			username: data.login,
 			name: data.name,
 			avatar: data.avatar_url,
+			html_url: data.html_url,
 		}
 
 		this.setState({userInfo})
