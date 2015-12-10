@@ -19,6 +19,7 @@
     "babel-preset-react": "^6.3.13",
     "backbone": "^1.2.3",
     "body-parser": "^1.14.1",
+    "expose-loader": "^0.7.1",
     "express": "^4.13.3",
     "jade": "^1.11.0",
     "jquery": "^2.1.4",

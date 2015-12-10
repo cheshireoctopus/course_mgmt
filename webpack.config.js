@@ -21,6 +21,22 @@ module.exports = {
 					plugins: ['transform-runtime'],
 				}
 			},
+			{
+				test: require.resolve('react'),
+				loader: 'expose?React',
+			},
+			{
+				test: require.resolve('underscore'),
+				loader: 'expose?_!expose?Underscore',
+			},
+			{
+				test: require.resolve('backbone'),
+				loader: 'expose?Backbone',
+			},
+			{
+				test: require.resolve('jquery'),
+				loader: 'expose?$!expose?jQuery',
+			},
 		],
 	},
 	resolve: {
