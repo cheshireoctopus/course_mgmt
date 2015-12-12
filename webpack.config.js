@@ -3,7 +3,9 @@ var config = require('./config.js')
 
 module.exports = {
 	devtool: 'eval', // map console errors to file/line number
-	entry: config.paths.PUBLIC + 'js/app.jsx',
+	entry: {
+		js: config.paths.PUBLIC + 'js/app.js',
+	},
 	output: {
 		path: config.paths.PUBLIC + '/js/build',
 		filename: 'bundle.js',
@@ -40,7 +42,8 @@ module.exports = {
 			{
 				test: /\.css$/,
 				loader: 'style-loader!css-loader',
-			}
+			},
+			{ test: /\.(png|woff|woff2|eot|ttf|svg)$/, loader: 'url-loader?limit=100000' }
 		],
 	},
 	resolve: {
