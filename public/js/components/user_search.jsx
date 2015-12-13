@@ -14,14 +14,19 @@ module.exports = React.createClass({
 
 	render: function () {
 		return (
-			<div>
-				<h3>GitHub User Search</h3>
-				<form onSubmit={this.userSearch}>
-					<label htmlFor="username">GitHub User Name</label>
-					<input ref="username" type="text" placeholder="GitHub User Name" name="username" />
-					<button onClick={this.userSearch}>Search</button>
-				</form>
-				<hr />
+			<div className="row">
+				<div className="col-md-4">
+					<h3>GitHub User Search</h3>
+					<form onSubmit={this.userSearch}>
+						<div className="form-group">
+							<label className="control-label" htmlFor="username">GitHub User Name</label>
+							<input className="form-control" ref="username" type="text" placeholder="GitHub User Name" name="username" />
+						</div>
+						<div className="form-group">
+							<button className="btn btn-default" onClick={this.userSearch}>Search</button>
+						</div>
+					</form>
+				</div>
 				{this.state.userInfo ? this.renderUserInfo() : false}
 			</div>
 		)
@@ -30,14 +35,16 @@ module.exports = React.createClass({
 	renderUserInfo: function () {
 		if (this.state.userInfo === 'Not Found') {
 			return (
-				<div className="row">
+				<div className="col-md-4">
 					<h2>Unable to locate user.</h2>
 				</div>
 			)
 		}
 
 		return (
-			<UserInfo {...this.state.userInfo}/>
+			<div className="col-md-4">
+				<UserInfo {...this.state.userInfo}/>
+			</div>
 		)
 	},
 

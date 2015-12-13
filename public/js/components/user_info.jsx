@@ -2,6 +2,8 @@ var React = require('react')
 var _ = require('underscore')
 var $ = require('jquery')
 
+var Repos = require('./repos.jsx')
+
 module.exports = React.createClass({
 	displayName: 'UserInfo',
 
@@ -41,27 +43,14 @@ module.exports = React.createClass({
 	},
 
 	renderRepos: function () {
-		if (!this.state.repos.length) return this.renderEmptyRepos()
-
-		return _.map(this.state.repos, function (repo) {
-			return (
-				<div key={repo.id}>
-					<a href={repo.html_url}><h5>{repo.name}</h5></a>
-					<p>Last Updated: {repo.updated_at}</p>
-				</div>
-			)
-		})
+		return (
+			<Repos repos={this.state.repos} />
+		)
 	},
 
 	renderRepoLoad: function () {
 		return (
 			<p>Loading repositories...</p>
-		)
-	},
-
-	renderEmptyRepos: function () {
-		return (
-			<p>Unable to locate any associated repositories</p>
 		)
 	},
 })
