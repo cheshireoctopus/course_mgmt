@@ -19,14 +19,13 @@ module.exports = React.createClass({
 	},
 
 	componentDidMount() {
-		console.log('component did mount')
 		$.get('github/repos/' + this.props.username)
-		.done(function (data) {
-			if (this.isMounted()) this.setState({ repos: data })
-		}.bind(this))
-		.fail(function (xhr) {
-			console.log('Error', xhr)
-		})
+			.done(function (data) {
+				if (this.isMounted()) this.setState({ repos: data })
+			}.bind(this))
+			.fail(function (xhr) {
+				console.log('Error', xhr)
+			})
 	},
 
 	render: function () {

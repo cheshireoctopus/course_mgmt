@@ -27,6 +27,9 @@ router.route('/user/:username')
 	  		if (!error && response.statusCode == 200) {
 	    		res.setHeader('Content-Type', 'application/json')
 	    		res.send(body)
+			} else {
+				res.setHeader('Content-Type', 'application/json')
+				res.send(body)
 			}
 		})
 	})

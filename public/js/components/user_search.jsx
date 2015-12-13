@@ -28,6 +28,14 @@ module.exports = React.createClass({
 	},
 
 	renderUserInfo: function () {
+		if (this.state.userInfo === 'Not Found') {
+			return (
+				<div className="row">
+					<h2>Unable to locate user.</h2>
+				</div>
+			)
+		}
+
 		return (
 			<UserInfo {...this.state.userInfo}/>
 		)
@@ -35,22 +43,23 @@ module.exports = React.createClass({
 
 	userSearch: function (e) {
 		e.preventDefault()
-
 		// Todo - update this fn to use onInput
-
 		var username = this.refs.username.value
 
+		this.setState({ userInfo: false })
+
 		$.get('/github/user/' + username)
-		.done(function (data) {
-			console.log(data)
-			this.buildUserInfo(data)
-		}.bind(this))
-		.fail(function (xhr) {
-			console.log('Error', xhr)
-		})
+			.done(function (data) {
+				this.buildUserInfo(data)
+			}.bind(this))
+			.fail(function (xhr) {
+				console.log('Error', xhr)
+			})
 	},
 
 	buildUserInfo: function (data) {
+		if (data.message === 'Not Found') return this.setState({ userInfo: 'Not Found'})
+
 		var userInfo = {
 			username: data.login,
 			name: data.name,
@@ -58,6 +67,6 @@ module.exports = React.createClass({
 			html_url: data.html_url,
 		}
 
-		this.setState({userInfo})
+		return this.setState({userInfo})
 	}
 })
