@@ -8,6 +8,7 @@ module.exports = React.createClass({
 	displayName: 'UserInfo',
 
 	propTypes: {
+		addMemberToClass: React.PropTypes.func.isRequired,
 		username: React.PropTypes.string.isRequired,
 		name: React.PropTypes.string.isRequired,
 		avatar: React.PropTypes.string.isRequired,
@@ -36,6 +37,9 @@ module.exports = React.createClass({
 				<a href={this.props.html_url} target="_blank"><h2>{this.props.username}</h2></a>
 				<h4>{this.props.name}</h4>
 				<img src={this.props.avatar} />
+				<div>
+					<button className="btn btn-default" onClick={this.handleAddToClass}>Add To Class</button>
+				</div>
 				<h3>Repositories</h3>
 				{this.state.repos ? this.renderRepos() : this.renderRepoLoad()}
 			</div>
@@ -53,4 +57,8 @@ module.exports = React.createClass({
 			<p>Loading repositories...</p>
 		)
 	},
+
+	handleAddToClass: function () {
+		this.props.addMemberToClass()
+	}
 })

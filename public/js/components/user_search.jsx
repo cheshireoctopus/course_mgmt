@@ -1,14 +1,17 @@
 var React = require('react')
 var $ = require('jquery')
+var _ = require('underscore')
 
 var UserInfo = require('./user_info.jsx')
+var ClassMembers = require('./class_members.jsx')
 
 module.exports = React.createClass({
 	displayName: 'UserSearch',
 
-	getInitialState() {
+	getInitialState: function () {
 	    return {
 	        userInfo: false,
+	        classMembers: [],
 	    };
 	},
 
@@ -28,6 +31,7 @@ module.exports = React.createClass({
 					</form>
 				</div>
 				{this.state.userInfo ? this.renderUserInfo() : false}
+				{this.state.classMembers.length ? this.renderClassMembers() : false}
 			</div>
 		)
 	},
@@ -43,8 +47,20 @@ module.exports = React.createClass({
 
 		return (
 			<div className="col-md-4">
-				<UserInfo {...this.state.userInfo}/>
+				<UserInfo
+					addMemberToClass={this.addMemberToClass}
+					username={this.state.userInfo.username}
+					name={this.state.userInfo.name}
+					avatar={this.state.userInfo.avatar}
+					html_url={this.state.userInfo.html_url}
+				/>
 			</div>
+		)
+	},
+
+	renderClassMembers: function () {
+		return (
+			<ClassMembers members={this.state.classMembers} />
 		)
 	},
 
@@ -68,6 +84,7 @@ module.exports = React.createClass({
 		if (data.message === 'Not Found') return this.setState({ userInfo: 'Not Found'})
 
 		var userInfo = {
+			id: data.id,
 			username: data.login,
 			name: data.name,
 			avatar: data.avatar_url,
@@ -75,5 +92,12 @@ module.exports = React.createClass({
 		}
 
 		return this.setState({userInfo})
+	},
+
+	addMemberToClass: function () {
+		var currentClass = _.clone(this.state.classMembers)
+		currentClass.push(this.state.userInfo)
+
+		this.setState({ classMembers: currentClass })
 	}
 })

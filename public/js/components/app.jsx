@@ -7,6 +7,8 @@ module.exports = React.createClass({
 	displayName: 'App',
 
 	render: function () {
-		return <UserSearch />
+		return (
+			<UserSearch />
+		)
 	}
 })

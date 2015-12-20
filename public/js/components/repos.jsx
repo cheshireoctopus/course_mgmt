@@ -8,7 +8,7 @@ module.exports = React.createClass({
 		repos: React.PropTypes.array,
 	},
 
-	getInitialState() {
+	getInitialState: function () {
 	    return {
 	        showAll: false
 	    };
@@ -16,7 +16,7 @@ module.exports = React.createClass({
 
 	render: function () {
 		return (
-			<div className="row">{this.renderRepoContainer()}</div>
+			<div>{this.renderRepoContainer()}</div>
 		)
 	},
 
