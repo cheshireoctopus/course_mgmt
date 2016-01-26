@@ -3,6 +3,7 @@ var config = require('./config')
 
 var express = require('express')
 var path = require('path')
+// var cors = require('cors')
 
 var githubRouter = require(config.paths.GITHUB + '/github.js')
 
@@ -14,6 +15,14 @@ app.set('views', config.paths.PUBLIC)
 
 // Middleware
 app.use(express.static(config.paths.PUBLIC))
+
+// app.use(function(req, res, next) {
+// 	res.setHeader('Access-Control-Allow-Origin', '*');
+// 	res.setHeader('Access-Control-Allow-Methods', 'GET, POST');
+// 	res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type,Authorization');
+// 	next();
+// });
+// app.use(cors())
 
 app.use(function (req, res, next) {
 	console.log('Routing...', req.url)
