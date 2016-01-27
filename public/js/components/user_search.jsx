@@ -14,6 +14,7 @@ module.exports = React.createClass({
 	    return {
 	    	loading: false,
 	    	queryStatus: false,
+	    	typeaheadResults: [],
 	        userInfo: false,
 	        classMembers: [],
 	    };
@@ -28,6 +29,7 @@ module.exports = React.createClass({
 						<div className="form-group">
 							<label className="control-label" htmlFor="username">GitHub User Name</label>
 							<input className="form-control" ref="username" type="text" placeholder="GitHub User Name" name="username" />
+							{this.state.typeaheadResults.length ? this.renderTypeaheadResults() : false}
 						</div>
 						<div className="form-group">
 							<button className="btn btn-default" onClick={this.userSearch}>Search</button>
@@ -40,8 +42,20 @@ module.exports = React.createClass({
 		)
 	},
 
+	renderTypeaheadResults () {
+		console.log('should be renderTypeaheadResults')
+		return this.state.typeaheadResults.map((res) => {
+			return (
+				<TypeaheadResult key={_.uniqueId()} username={res.username} avatar={res.avatar} />
+			)
+		})
+	},
+
 	userQuery () {
 		var query = this.refs.username.value
+
+		// don't hit github api unless query is 3 letters in length
+		if (query.length <= 2) return
 
 		$.get('/github/search/users/' + query)
 			.done((data) => {
@@ -53,15 +67,22 @@ module.exports = React.createClass({
 	},
 
 	processUserQuery (data) {
-		if (!data || data.items || !data.items.length) return this.setState({ queryStatus: false })
+		// if (!data || !data.items || !data.items.length) return this.setState({ queryStatus: false })
 
 		// only show first 10 results
 		var results = []
-
 		for (var i = 0, l = data.items.length; i < 10; i++) {
 			var res = data.items[i]
-			results.push(<TypeaheadResult userName={res.login} avatar={avatar_url} />)
+			console.log(res)
+			results.push({
+				username: res.login || false,
+				avatar: res.avatar_url || false,
+			})
 		}
+
+		this.setState({
+			typeaheadResults: results,
+		})
 	},
 
 	renderUserInfo () {
