@@ -1,5 +1,6 @@
 require('jquery')
 require('bootstrap/dist/css/bootstrap.css')
+require('../../public/css/styles.css')
 
 var React = require('react')
 var ReactDOM = require('react-dom')

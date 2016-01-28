@@ -1,0 +1,15 @@
+/* TODO: configure this shit with webpack/require/SASS */
+
+/* GENERAL STYLES */
+.push-left { margin-left: 10px;}
+.push-right { margin-right: 10px;}
+
+/* REACT: Typeahead Result */
+.typeahead-result {
+	width: 360px;
+}
+
+.typeahead-result img {
+	width: 25px;
+	height: 25px;
+}
