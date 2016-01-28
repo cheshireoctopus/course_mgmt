@@ -10,9 +10,9 @@ module.exports = React.createClass({
 
 	render () {
 		return (
-			<div className="clearfix">
+			<div className="clearfix typeahead-result">
 				<div className="pull-left">
-					<img src={this.props.avatar} />
+					<img className="typeahead-img" src={this.props.avatar} />
 				</div>
 				<span>{this.props.username}</span>
 			</div>
