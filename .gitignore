@@ -46,3 +46,6 @@ node_modules
 notes
 .env
 data
+
+# Webpack Bundles
+public/js/build/*

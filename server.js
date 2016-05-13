@@ -11,7 +11,7 @@ var app = express()
 
 // Set template engine
 app.set('view engine', 'jade')
-app.set('views', config.paths.PUBLIC)
+app.set('views', config.paths.VIEWS)
 
 // Middleware
 app.use(express.static(config.paths.PUBLIC))
@@ -33,6 +33,10 @@ app.use('/github', githubRouter)
 
 app.get('/', function (req, res) {
 	res.render('index')
+})
+
+app.get('/classes', function (req, res) {
+	res.render('classes')
 })
 
 // Get turnt

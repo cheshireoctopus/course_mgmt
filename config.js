@@ -1,7 +1,8 @@
 module.exports = {
 	paths: {
+		GITHUB: './app/routes/',
 		PUBLIC: './public/',
-		GITHUB: './app/routes/'
+		VIEWS: './views/',
 	},
 	githubAPI: {
 		authUser: 'https://github.com/login/oauth/authorize',
