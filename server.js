@@ -3,9 +3,9 @@ var config = require('./config')
 
 var express = require('express')
 var path = require('path')
-// var cors = require('cors')
 
 var githubRouter = require(config.paths.GITHUB + '/github.js')
+var classesRouter = require(config.paths.ROUTES + '/classes.js')
 
 var app = express()
 
@@ -29,14 +29,15 @@ app.use(function (err, req, res, next) {
 })
 
 // Routes
+app.use('/classes', classesRouter)
 app.use('/github', githubRouter)
 
 app.get('/', function (req, res) {
-	res.render('index')
-})
+	var data = {
+		app: 'index',
+	}
 
-app.get('/classes', function (req, res) {
-	res.render('classes')
+	res.render('index', { data: data })
 })
 
 // Get turnt

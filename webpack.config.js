@@ -4,7 +4,7 @@ var config = require('./config.js')
 module.exports = {
 	devtool: 'eval', // map console errors to file/line number
 	entry: {
-		js: config.paths.PUBLIC + 'js/app.js',
+		js: config.paths.PUBLIC + 'js/main.babel.js',
 	},
 	output: {
 		path: config.paths.PUBLIC + '/js/build',
