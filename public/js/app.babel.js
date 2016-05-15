@@ -12,9 +12,13 @@ module.exports = function (options) {
 
 	switch (options.app) {
 		case ('index'):
-			return app = React.createElement(App)
+			app = React.createElement(App)
+			break
 		case ('classes'):
-			return app = React.createElement(Classes)
+			app = new Classes()
+			break
+		default:
+			app = React.createElement(App)
 	}
 
 	ReactDOM.render(app, options.element)

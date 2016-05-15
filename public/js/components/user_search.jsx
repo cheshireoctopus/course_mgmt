@@ -25,7 +25,7 @@ module.exports = React.createClass({
 			<div className="row">
 				<div className="col-md-4">
 					<h3>GitHub User Search</h3>
-					<form onSubmit={this.userSearch} onKeyUp={this.userQuery}>
+					<form onSubmit={this.userSearch} onKeyUp={this.userSearch}>
 						<div className="form-group">
 							<label className="control-label" htmlFor="username">GitHub User Name</label>
 							<input className="form-control" ref="username" type="text" placeholder="GitHub User Name" name="username" />
