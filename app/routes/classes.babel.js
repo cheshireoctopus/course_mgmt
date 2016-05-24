@@ -1,7 +1,9 @@
-require('dotenv').load()
-var config = require('../../config')
 var express = require('express')
 var request = require('request')
+
+var classesData = require('../../public/js/apps/classes/__tests__/fixtures/classes.json')
+var classData = require('../../public/js/apps/classes/__tests__/fixtures/class.json')
+
 var router = express.Router()
 
 router.use(function (req, res, next) {
@@ -10,12 +12,7 @@ router.use(function (req, res, next) {
 })
 
 router.get('/', function (req, res) {
-	var data = {
-		app: 'classes',
-	}
-
-	res.render('index', { data: data })
+	res.send(classesData)
 })
-
 
 module.exports = router

@@ -4,8 +4,7 @@ var config = require('./config')
 var express = require('express')
 var path = require('path')
 
-var githubRouter = require(config.paths.GITHUB + '/github.js')
-var classesRouter = require(config.paths.ROUTES + '/classes.js')
+var apiRouter = require(config.paths.ROUTES + '/api.babel.js')
 
 var app = express()
 
@@ -29,12 +28,19 @@ app.use(function (err, req, res, next) {
 })
 
 // Routes
-app.use('/classes', classesRouter)
-app.use('/github', githubRouter)
+app.use('/api', apiRouter)
 
 app.get('/', function (req, res) {
 	var data = {
 		app: 'index',
+	}
+
+	res.render('index', { data: data })
+})
+
+app.get('/classes', function (req, res) {
+	var data = {
+		app: 'classes',
 	}
 
 	res.render('index', { data: data })
