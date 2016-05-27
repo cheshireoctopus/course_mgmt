@@ -15,4 +15,10 @@ router.get('/', function (req, res) {
 	res.send(classesData)
 })
 
+router.get('/:id', function (req, res) {
+	var id = req.params.id
+
+	res.send(classData)
+})
+
 module.exports = router

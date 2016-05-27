@@ -1,21 +1,30 @@
-var ACTIONS = require('./constants').ACTIONS
+var actions = require('./constants').ACTIONS
 var Immutable = require('immutable')
 
 let initialState = Immutable.Map({
-	classes: {}
+	classes: {},
+	isLoading: null,
 })
 
-module.exports = function (state = initialState, action) {
+module.exports = (state = initialState, action) => {
 	switch (action.type) {
-		case ACTIONS.BOOTSTRAP:
-			return handleBootstrap(state, action.payload)
+		case actions.RECEIVE_CLASSES:
+			return receiveClasses(state, action.payload)
+		case actions.TOGGLE_LOADING:
+			return toggleLoading(state, action.payload)
 		default:
 			return state
 	}
 }
 
-function handleBootstrap (state, payload) {
+function receiveClasses (state, payload) {
 	return state.merge({
-		classes: {}
+		classes: payload.classes
+	})
+}
+
+function toggleLoading (state, payload) {
+	return state.merge({
+		isLoading: payload.value
 	})
 }

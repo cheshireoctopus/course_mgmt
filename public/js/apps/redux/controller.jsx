@@ -16,7 +16,7 @@ module.exports = React.createClass({
         component: React.PropTypes.func.isRequired,
     },
 
-    componentWillMount: function () {
+    componentWillMount () {
         this._unsubscribe = this.props.store.subscribe(() => {
             this.setState({
                 storeState: this.props.store.getState(),
@@ -24,22 +24,22 @@ module.exports = React.createClass({
         })
     },
 
-    componentWillUnmount: function () {
+    componentWillUnmount () {
         this._unsubscribe()
     },
 
-    getInitialState: function () {
+    getInitialState () {
         return {
             storeState: this.props.store.getState(),
             actions: Redux.bindActionCreators(this.props.actions, this.props.store.dispatch),
         }
     },
 
-    shouldComponentUpdate: function (nextProps, nextState) {
+    shouldComponentUpdate (nextProps, nextState) {
         return !Immutable.is(this.state.storeState, nextState.storeState) || this.props.component !== nextProps.component
     },
 
-    render: function () {
+    render () {
         var props = _.extend(
             {},
             this.state.storeState.toJS(),
