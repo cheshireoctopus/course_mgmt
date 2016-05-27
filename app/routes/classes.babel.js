@@ -1,8 +1,7 @@
 var express = require('express')
-var request = require('request')
 
-var classesData = require('../../public/js/apps/classes/__tests__/fixtures/classes.json')
-var classData = require('../../public/js/apps/classes/__tests__/fixtures/class.json')
+var classesData = require('../../tests/fixtures/classes.json')
+var classData = require('../../tests/fixtures/class.json')
 
 var router = express.Router()
 

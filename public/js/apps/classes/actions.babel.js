@@ -4,39 +4,88 @@ var actions = require('./constants').ACTIONS
 module.exports = {
 	setup (options) {
 		return dispatch => {
-			dispatch(this.toggleLoading(true))
+			dispatch(toggleLoading(true))
 
 			$.when(
-				dispatch(this.fetchClasses())
-			).done(() => {
-				dispatch(this.toggleLoading(false))
+				dispatch(fetchClasses())
+			).then(() => {
+				dispatch(toggleLoading(false))
 			})
 		}
 	},
 
-	fetchClasses () {
-		return dispatch =>
-			$.get('/api/classes')
-				.done((res) => {
-					dispatch(this.receiveClasses(res))
-				})
-	},
+	showClass (classId) {
+		return dispatch => {
+			dispatch(toggleLoading(true))
 
-	receiveClasses (classes) {
-		return {
-			type: actions.RECEIVE_CLASSES,
-			payload: {
-				classes,
-			}
+			$.when(
+				dispatch(fetchClass(classId))
+			).then(() => {
+				dispatch(toggleLoading(false))
+			})
 		}
 	},
+}
 
-	toggleLoading (value) {
-		return {
-			type: actions.TOGGLE_LOADING,
-			payload: {
-				value,
-			}
+function toggleLoading (value) {
+	return {
+		type: actions.TOGGLE_LOADING,
+		payload: {
+			value,
 		}
 	}
 }
+
+function fetchClass (classId) {
+	return dispatch => {
+		$.get('/api/classes/' + classId)
+			.then((res) => {
+				dispatch(receiveClass(res))
+			})
+	}
+}
+
+function fetchClasses () {
+	return dispatch =>
+		$.get('/api/classes')
+			.then((res) => {
+				dispatch(receiveClasses(res))
+			})
+}
+
+function fetchStudentsByClassId (classId) {
+	return dispatch => {
+		$.get('/api/students/class/' + classId)
+			.then(res => {
+				dispatch(receiveStudents(res))
+			})
+	}
+}
+
+function receiveClass (classObj) {
+	return {
+		type: actions.RECEIVE_CLASS,
+		payload: {
+			classObj,
+		}
+	}
+}
+
+function receiveClasses (classes) {
+	return {
+		type: actions.RECEIVE_CLASSES,
+		payload: {
+			classes,
+		}
+	}
+}
+
+function receiveStudents (students) {
+	return {
+		type: actions.RECEIVE_STUDENTS,
+		payload: {
+			students,
+		}
+	}
+}
+
