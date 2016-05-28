@@ -19,7 +19,8 @@ module.exports = {
 			dispatch(toggleLoading(true))
 
 			$.when(
-				dispatch(fetchClass(classId))
+				dispatch(fetchClass(classId)),
+				dispatch(fetchStudentsByClassId(classId))
 			).then(() => {
 				dispatch(toggleLoading(false))
 			})

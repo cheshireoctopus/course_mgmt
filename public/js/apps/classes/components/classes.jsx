@@ -16,9 +16,13 @@ module.exports = React.createClass({
 		})
 
 		return (
-			<ul className="list-group">
-				{classes}
-			</ul>
+			<div className="row">
+				<div className="col-md-12">
+					<ul className="list-group">
+						{classes}
+					</ul>
+				</div>
+			</div>
 		)
 	},
 

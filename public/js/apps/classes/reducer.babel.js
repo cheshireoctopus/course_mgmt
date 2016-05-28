@@ -2,10 +2,11 @@ var actions = require('./constants').ACTIONS
 var Immutable = require('immutable')
 
 let initialState = Immutable.Map({
-	class: false,
+	class: {},
 	classes: [],
 	isLoading: false,
-	studentsByClass: false,
+	isShowingClass: false,
+	studentsByClass: [],
 })
 
 module.exports = (state = initialState, action) => {
@@ -26,15 +27,16 @@ module.exports = (state = initialState, action) => {
 function receiveClass (state, payload) {
 	console.log(payload)
 	return state.merge({
+		isShowingClass: true,
 		class: payload.classObj,
 	})
 }
 
 function receiveClasses (state, payload) {
 	return state.merge({
-		class: false,
+		isShowingClass: false,
 		classes: payload.classes,
-		studentsByClass: false,
+		studentsByClass: [],
 	})
 }
 

@@ -1,6 +1,6 @@
 var _ = require('underscore')
 var React = require('react')
-var Student
+var StudentRow = require('./student_row.jsx')
 
 module.exports = React.createClass({
 	displayName: 'Class',
@@ -18,26 +18,35 @@ module.exports = React.createClass({
 
 	render () {
 		return (
-			<div>
-				<div className="row">
+			<div className="row">
+				<div className="col-md-12">
+					<a onClick={this.handleClick}>Back to Main</a>
+				</div>
+				<div className="col-md-4">
 					<h2>{this.props.name}</h2>
 					<p>Start: {this.props.start}</p>
 					<p>End: {this.props.end}</p>
 					<p>Location: {this.props.location}</p>
 					<p>Student Count: {this.props.studentCount}</p>
 				</div>
-				{this.props.students ? this.renderStudents() : false }
+				<div className="col-md-8">
+					{this.props.students ? this.renderStudents() : false }
+				</div>
 			</div>
 		)
 	},
 
 	renderStudents () {
-		let students = _.map(this.props.students, student => <StudentRow {...student}/>)
+		let students = _.map(this.props.students, student => <StudentRow key={student.id} {...student}/>)
 
 		return (
 			<ul className="list-group">
 				{students}
 			</ul>
 		)
+	},
+
+	handleClick () {
+
 	}
 })

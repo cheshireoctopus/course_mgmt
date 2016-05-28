@@ -1,0 +1,23 @@
+[
+	{
+		"id": "student:1",
+		"name": "Student 1 Name",
+		"email": "student1@gmail.com",
+		"github": "githubUserName1",
+		"photo_url": "https://pbs.twimg.com/profile_images/451007105391022080/iu1f7brY_400x400.png"
+	},
+	{
+		"id": "student:2",
+		"name": "Student 2 Name",
+		"email": "student2@gmail.com",
+		"github": "githubUserName2",
+		"photo_url": "https://pbs.twimg.com/profile_images/451007105391022080/iu1f7brY_400x400.png"
+	},
+	{
+		"id": "student:3",
+		"name": "Student 3 Name",
+		"email": "student3@gmail.com",
+		"github": "githubUserName3",
+		"photo_url": "https://pbs.twimg.com/profile_images/451007105391022080/iu1f7brY_400x400.png"
+	}
+]

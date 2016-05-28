@@ -1,6 +1,8 @@
 var express = require('express')
-
 var router = express.Router()
+
+var studentsData = require('../../tests/fixtures/students.json')
+var studentData = require('../../tests/fixtures/student.json')
 
 router.use(function (req, res, next) {
 	console.log('Routing Students...', req.url)
@@ -16,7 +18,11 @@ router.get('/:id', function (req, res) {
 })
 
 router.get('/class/:id', function (req, res) {
-	res.send('STUDENTS BY CLASS')
+	var classId = req.params.id
+
+	console.log('CLASS ID: ' + classId)
+
+	res.send(studentsData)
 })
 
 module.exports = router

@@ -12,21 +12,27 @@ module.exports = React.createClass({
 		]),
 		classes: React.PropTypes.array.isRequired,
 		isLoading: React.PropTypes.bool.isRequired,
+		isShowingClass: React.PropTypes.bool.isRequired,
 		showClass: React.PropTypes.func.isRequired,
+		studentsByClass: React.PropTypes.array.isRequired,
 	},
 
 	render () {
 		return (
-			<div>
-				<h1>Classes</h1>
-				<hr />
+			<div className="container">
+				<div className="row">
+					<div className="col-md-12">
+						<h1>Classes</h1>
+						<hr />
+					</div>
+				</div>
 				{this.isLoading ? <h3>Loading...</h3> : this.renderView()}
 			</div>
 		)
 	},
 
 	renderView () {
-		if (this.props.class) return <Class {...this.props.class} />
+		if (this.props.isShowingClass) return <Class {...this.props.class} students={this.props.studentsByClass} />
 		return <Classes classes={this.props.classes} showClass={this.props.showClass} />
 	}
 })
