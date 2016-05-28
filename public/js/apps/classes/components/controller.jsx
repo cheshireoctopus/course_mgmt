@@ -14,6 +14,7 @@ module.exports = React.createClass({
 		isLoading: React.PropTypes.bool.isRequired,
 		isShowingClass: React.PropTypes.bool.isRequired,
 		showClass: React.PropTypes.func.isRequired,
+		showClasses: React.PropTypes.func.isRequired,
 		studentsByClass: React.PropTypes.array.isRequired,
 	},
 
@@ -32,7 +33,7 @@ module.exports = React.createClass({
 	},
 
 	renderView () {
-		if (this.props.isShowingClass) return <Class {...this.props.class} students={this.props.studentsByClass} />
+		if (this.props.isShowingClass) return <Class {...this.props.class} students={this.props.studentsByClass} showClasses={this.props.showClasses} />
 		return <Classes classes={this.props.classes} showClass={this.props.showClass} />
 	}
 })

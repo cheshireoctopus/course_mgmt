@@ -26,6 +26,18 @@ module.exports = {
 			})
 		}
 	},
+
+	showClasses () {
+		return dispatch => {
+			dispatch(toggleLoading(true))
+
+			$.when(
+				dispatch(fetchClasses())
+			).then(() => {
+				dispatch(toggleLoading(false))
+			})
+		}
+	}
 }
 
 function toggleLoading (value) {
