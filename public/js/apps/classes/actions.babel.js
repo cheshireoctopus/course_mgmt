@@ -2,7 +2,7 @@ var $ = require('jquery')
 var actions = require('./constants').ACTIONS
 
 module.exports = {
-	setup (options) {
+	setup () {
 		return dispatch => {
 			dispatch(toggleLoading(true))
 
@@ -52,7 +52,7 @@ function toggleLoading (value) {
 function fetchClass (classId) {
 	return dispatch => {
 		$.get('/api/classes/' + classId)
-			.then((res) => {
+			.then(res => {
 				dispatch(receiveClass(res))
 			})
 	}
@@ -61,7 +61,7 @@ function fetchClass (classId) {
 function fetchClasses () {
 	return dispatch =>
 		$.get('/api/classes')
-			.then((res) => {
+			.then(res => {
 				dispatch(receiveClasses(res))
 			})
 }

@@ -1,24 +1,23 @@
-var React = require('react')
 var ReactDOM = require('react-dom')
-var App = require('./components/app.jsx')
 var Classes = require('./apps/classes/index.babel.js')
+var Students = require('./apps/students/index.babel.js')
 var assert = require('assert')
 
-module.exports = function (options) {
+module.exports = options => {
 	assert(options.element)
 	assert(options.app)
 
 	let app
 
 	switch (options.app) {
-		case ('index'):
-			app = React.createElement(App)
-			break
 		case ('classes'):
 			app = new Classes()
 			break
+		case ('students'):
+			app = new Students()
+			break
 		default:
-			app = React.createElement(App)
+			app = new Classes()
 	}
 
 	ReactDOM.render(app, options.element)

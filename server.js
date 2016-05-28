@@ -32,15 +32,15 @@ app.use('/api', apiRouter)
 
 app.get('/', function (req, res) {
 	var data = {
-		app: 'index',
+		app: 'classes',
 	}
 
 	res.render('index', { data: data })
 })
 
-app.get('/classes', function (req, res) {
+app.get('/students', function (req, res) {
 	var data = {
-		app: 'classes',
+		app: 'students'
 	}
 
 	res.render('index', { data: data })

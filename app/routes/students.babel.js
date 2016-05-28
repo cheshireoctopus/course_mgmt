@@ -10,11 +10,11 @@ router.use(function (req, res, next) {
 })
 
 router.get('/', function (req, res) {
-	res.send('STUDENTS')
+	res.send(studentsData)
 })
 
 router.get('/:id', function (req, res) {
-	res.send('STUDENT')
+	res.send(studentData)
 })
 
 router.get('/class/:id', function (req, res) {
