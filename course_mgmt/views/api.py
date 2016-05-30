@@ -454,7 +454,7 @@ def class_add_student(class_id):
         db.session.bulk_save_objects(attendances, return_defaults=False)
 
     # Create assignment records for the students
-    q = db.session.Query(CourseHomework).join(Course).join(Class).filter(Class.id == class_id)
+    q = db.session.query(CourseHomework).join(Course).join(Class).filter(Class.id == class_id)
     course_homework_ids = [course_homework.id for course_homework in q]
     if course_homework_ids:
         assignments = []
