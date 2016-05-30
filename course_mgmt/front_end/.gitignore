@@ -49,3 +49,6 @@ data
 
 # Webpack Bundles
 public/js/build/*
+
+# Pycharm Python IDE
+.idea
