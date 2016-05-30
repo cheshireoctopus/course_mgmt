@@ -60,7 +60,7 @@ function fetchClass (classId) {
 
 function fetchClasses () {
 	return dispatch =>
-		$.get('/api/class')
+		$.get('/api/class/')
 			.then(res => {
 				dispatch(receiveClasses(res))
 			})

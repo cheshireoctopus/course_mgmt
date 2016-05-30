@@ -51,4 +51,4 @@ data
 public/js/build/*
 
 # Pycharm Python IDE
-.idea
+.idea/*

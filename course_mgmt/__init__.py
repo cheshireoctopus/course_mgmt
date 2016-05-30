@@ -4,6 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.engine import Engine
 from sqlalchemy import event
 
+
 # Sqlite doesn't enforce Foreign Keys by default. This enables it
 @event.listens_for(Engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
@@ -33,8 +34,8 @@ def index():
     return app.send_static_file('index.html')
     #return render_template('index.jade', data={'app': 'classes'})
 
-@app.route('/jade/')
-def jad():
+@app.route('/class/')
+def classes():
     #return app.send_static_file('index.jads')
     return render_template('index.jade', data={'app': 'classes'})
 
