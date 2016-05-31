@@ -4,10 +4,15 @@ A simple application for teaching a class using GitHub.
 
 Set up for your own course:
 
-1. `npm install`
-2. Create a `.env` file at project root containing:
+1. `pip install` the following at root (use of [virutal environments](http://docs.python-guide.org/en/latest/dev/virtualenvs/) is recommended):
+  - `flask`
+  - `flask_sqlalchemy`
+  - `pyjade`
+2. Create a `.env` file at `course_mgmt/front_end/` root containing:
   - `githubUsername='YOURGITHUBUSERNAME'`
   - `PORT=1337`
-3. Start node server: `npm run dev` or `nodemon`
-4. Start webpack bundling/watching `npm run bundle`
+
+To boot webserver, at project root run `python run.py`. Project is hosted on `localhost:5000`
+
+To boot webpack for bundling/watching of frontend assets, run `npm run bundle` at `course_mgmt/front_end/` root. This will bundle JavaScript and CSS assets into `course_mgmt/front_end/public/js/build/bundle.js`.
 

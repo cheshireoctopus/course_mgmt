@@ -45,10 +45,14 @@ node_modules
 # User
 notes
 .env
-data
 
 # Webpack Bundles
 public/js/build/*
 
 # Pycharm Python IDE
 .idea/*
+*.pyc
+*.db
+
+# Python Virutal Environment
+venv
