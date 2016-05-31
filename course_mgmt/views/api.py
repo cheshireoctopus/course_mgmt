@@ -338,6 +338,86 @@ def course_get_classes_by_course_id(id):
 
     return jsonify({'meta': {'len': len(classes)}, 'data': classes})
 
+@app.route('/api/course/<int:course_id>/homework/', methods=['GET'])
+@try_except
+def course_get_homework_by_course_id(course_id):
+    q = db.session.query(Homework).join(CourseHomework).filter(CourseHomework.course_id == course_id)
+    homeworks = [homework.json for homework in q]
+
+    return jsonify({"meta": {"len": len(homeworks)}, "data": homeworks}), 200
+
+@app.route('/api/class/<int:class_id>/homework/', methods=['GET'])
+def class_get_homework_by_class_id(class_id):
+    q = db.session.query(Homework, CourseHomework).join(CourseHomework).join(Course).join(Class) \
+        .filter(Class.id == class_id)
+
+    ret = []
+    for homework, course_homework in q:
+        ret.append({
+            'homework': homework.json,
+            'course_homework': course_homework.json
+        })
+
+    return jsonify({"meta": {"len": len(ret)}, "data": ret}), 200
+
+@app.route('/api/class/<int:class_id>/assignment/', methods=['GET'])
+@try_except
+def class_get_assignment_by_class_id(class_id):
+    '''
+    Use this to find the assignments for a class.
+    An Assignment is a CourseHomework that is attached with a ClassStudent
+    Call the URL with a query parmeter like this:
+
+        /api/class/1/assignment/?course_homework_id=1
+    :param class_id:
+    :return:
+    '''
+    args = request.args
+    course_homework_id = args.get('course_homework_id', None)
+    app.logger.debug("args is {}".format(args))
+    app.logger.debug("course_homework_id is {}".format(course_homework_id))
+
+    q = db.session.query(Homework, Assignment, Student) \
+        .join(CourseHomework).join(Assignment).join(ClassStudent).join(Student) \
+        .filter(ClassStudent.class_id ==class_id)
+
+    if course_homework_id:
+        q = q.filter(Assignment.course_homework_id == course_homework_id)
+
+    app.logger.debug("query is {}".format(q.statement))
+
+    ret = []
+
+    for homework, assignment, student in q:
+        ret.append(
+            {
+                'homework': homework.json,
+                'assignment': assignment.json,
+                'student': student.json,
+            }
+        )
+
+    return jsonify({"meta": {"len": len(ret)}, "data": ret}), 200
+
+@app.route('/api/student/<int:student_id>/assignment/', methods=['GET'])
+@try_except
+def student_get_assignments_by_student_id(student_id):
+    q = db.session.query(Homework, Assignment) \
+        .join(CourseHomework).join(Assignment).join(ClassStudent) \
+        .filter(ClassStudent.student_id == student_id)
+
+    ret = []
+
+    for homework, assignment in q:
+        ret.append(
+            {
+                'homework': homework.json,
+                'assignment': assignment.json
+            }
+        )
+
+    return jsonify({"meta": {"len": len(ret)}, "data": ret})
+
 
 
 @app.route('/api/class/', methods=['POST'])
@@ -371,7 +451,7 @@ def class_create():
                          end_dt=datetime.strptime(class_obj['end_dt'], date_format))
                    for class_obj in data
         ]
-    except ValueError as ex:
+    except KeyError as ex:
         raise UserError(ex.message)
 
     try:
@@ -396,12 +476,15 @@ def student_create():
     keys = 'data'
     data = extract_form(form, keys)
 
-    students = [Student(first_name=student['first_name'],
-                        last_name=student['last_name'],
-                        github_username=student['github_username'],
-                        email=student['email'],
-                        photo_url=student['photo_url'])
-                for student in data]
+    try:
+        students = [Student(first_name=student['first_name'],
+                            last_name=student['last_name'],
+                            github_username=student['github_username'],
+                            email=student['email'],
+                            photo_url=student['photo_url'])
+                    for student in data]
+    except KeyError as ex:
+        raise UserError("Expecting (first_name, last_name, github_username, email, photo_url)")
 
     db.session.bulk_save_objects(students, return_defaults=True)
 
@@ -541,7 +624,7 @@ def course_add_homework(course_id):
         assignments = []
         for class_student_id in class_student_ids:
             for course_homework in course_homeworks:
-                assignments.append(Assignment(course_homework_id=course_homework.course_homework,
+                assignments.append(Assignment(course_homework_id=course_homework.id,
                                               class_student_id=class_student_id))
 
         db.session.bulk_save_objects(assignments, return_defaults=False)

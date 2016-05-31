@@ -52,3 +52,9 @@ public/js/build/*
 
 # Pycharm Python IDE
 .idea/*
+
+# Python compiled files
+*.pyc
+
+# Sqlite db file
+db.db

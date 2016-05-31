@@ -21,7 +21,7 @@ def get_first_id_from_response(r):
     '''
     return r.json()['data'][0]['id']
 
-def hit_api(api, data=None, method='POST'):
+def hit_api(api, data=None, params=None, method='POST'):
     '''
     Utility method to hit any of the APIs
     :param api: Full API after host:port
@@ -30,7 +30,7 @@ def hit_api(api, data=None, method='POST'):
     :param method: 'POST', 'GET', 'PUT', 'DELETE'
     :return: a response object from requests
     '''
-    r = getattr(requests, method.lower())(URL + api, json=data)
+    r = getattr(requests, method.lower())(URL + api, json=data, params=params)
     return r
 
 def drop_and_create_db():
@@ -246,7 +246,10 @@ class TestInitializations(unittest.TestCase):
         # Drop and recreate the database
         self.assertEquals(200, drop_and_create_db().status_code)
 
-        # TODO create a second class/lecture/homework/student to test for inteference
+        '''
+        Create a completely different course/class/lecture/homework/student to see if it interferes
+        '''
+
         # Course
         r = create_course(name='Interference Course')
         self.assertEquals(r.status_code, 200)
@@ -261,12 +264,9 @@ class TestInitializations(unittest.TestCase):
         r = create_lecture(class_id=class_id, name='Interference Lecture', description='The first interference', dt='2016-01-01 00:00:00')
         self.assertEquals(r.status_code, 200)
 
-        lecture_id = get_first_id_from_response(r)
-
         ## Create Dependent Homework and Add to Course Synchronously
         r = create_homework_dependent(course_id=course_id, name='Interference Homework 2')
         self.assertEquals(r.status_code, 200)
-        course_homework_id_2 = get_first_id_from_response(r)
 
         ############
         ## Create Dependent Student and Add to Class
@@ -274,12 +274,14 @@ class TestInitializations(unittest.TestCase):
                                      email='inter@ference.com', photo_url='http://interference.com/pic.jpg')
         self.assertEquals(r.status_code, 200)
 
-
-
-
     def _read_attendance_by_lecture(self, lecture_id):
         api = '/api/lecture/{}/attendance/'.format(lecture_id)
         return hit_api(api, method='GET')
+
+    def _read_assignment(self, class_id, course_homework_id):
+        api = '/api/class/{}/assignment'.format(class_id)
+        params = {'course_homework_id': course_homework_id}
+        return hit_api(api, method='GET', params=params)
 
     def test_add_student(self):
         r = create_course(name='Matthew''s Course')
@@ -300,9 +302,9 @@ class TestInitializations(unittest.TestCase):
         lecture_id = get_first_id_from_response(r)
 
         ## Create Dependent Homework and Add to Course Synchronously
-        r = create_homework_dependent(course_id=course_id, name='Homework 2')
+        r = create_homework_dependent(course_id=course_id, name='Homework 1')
         self.assertEquals(r.status_code, 200)
-        course_homework_id_2 = get_first_id_from_response(r)
+        course_homework_id = get_first_id_from_response(r)
 
 
         ############
@@ -311,7 +313,7 @@ class TestInitializations(unittest.TestCase):
                                      email='hello@chandlermoisen.com', photo_url='http://chandlermoinse.com/pic.jpg')
         self.assertEquals(r.status_code, 200)
 
-        student_id = get_first_id_from_response(r)
+        class_student_id = get_first_id_from_response(r)
 
         ############
         ## Query for proof
@@ -328,9 +330,23 @@ class TestInitializations(unittest.TestCase):
         self.assertEquals(attendance['attendance']['lecture_id'], lecture_id)
         # attendance defaults to False
         self.assertEquals(attendance['attendance']['did_attend'], False)
-        self.assertEquals(attendance['student']['id'], student_id)
+        #self.assertEquals(attendance['student']['id'], student_id)
 
-        # TODO Assignments
+        ## Assignments
+        r = self._read_assignment(class_id, course_homework_id)
+        self.assertEquals(r.status_code, 200)
+
+        assignments = r.json()['data']
+
+        self.assertEquals(1, len(assignments))
+
+        assignment = assignments[0]
+
+        self.assertEquals(assignment['assignment']['course_homework_id'], course_homework_id)
+        self.assertEquals(assignment['assignment']['class_student_id'], class_student_id)
+        self.assertEquals(assignment['homework']['name'], 'Homework 1')
+
+
 
     def test_add_lecture(self):
         r = create_course(name='Matthew''s Course')
@@ -350,7 +366,7 @@ class TestInitializations(unittest.TestCase):
                                      email='hello@chandlermoisen.com', photo_url='http://chandlermoinse.com/pic.jpg')
         self.assertEquals(r.status_code, 200)
 
-        student_id = get_first_id_from_response(r)
+        class_student_id = get_first_id_from_response(r)
 
         #######
         ## Create Lecture
@@ -359,7 +375,7 @@ class TestInitializations(unittest.TestCase):
 
         lecture_id = get_first_id_from_response(r)
 
-        # Query Assignments for proof
+        # Query Attendance for proof
         r = self._read_attendance_by_lecture(lecture_id)
         self.assertEquals(r.status_code, 200)
 
@@ -371,10 +387,49 @@ class TestInitializations(unittest.TestCase):
         self.assertEquals(attendance['attendance']['lecture_id'], lecture_id)
         # attendance defaults to False
         self.assertEquals(attendance['attendance']['did_attend'], False)
-        self.assertEquals(attendance['student']['id'], student_id)
+        self.assertEquals(attendance['attendance']['class_student_id'], class_student_id)
 
     def test_add_homework(self):
-        pass
+        r = create_course(name='Matthew''s Course')
+        self.assertEquals(r.status_code, 200)
+
+        course_id = get_first_id_from_response(r)
+
+        ## Create Class
+        r = create_class(course_id=course_id, start_dt='2016-01-01 00:00:00', end_dt='2016-05-30 00:00:00')
+        self.assertEquals(r.status_code, 200)
+
+        class_id = get_first_id_from_response(r)
+
+        ## Create Dependent Student and Add to Class
+        r = create_student_dependent(class_id=class_id, first_name='Chandler', last_name='Moisen', github_username='cheshire',
+                                     email='hello@chandlermoisen.com', photo_url='http://chandlermoinse.com/pic.jpg')
+        self.assertEquals(r.status_code, 200)
+
+        class_student_id = get_first_id_from_response(r)
+
+        ## Create Dependent Homework and Add to Course Synchronously
+        r = create_homework_dependent(course_id=course_id, name='Homework 1')
+        self.assertEquals(r.status_code, 200)
+        course_homework_id = get_first_id_from_response(r)
+
+
+        ## Query Assignments for Proof
+        ## Assignments
+        r = self._read_assignment(class_id, course_homework_id)
+        self.assertEquals(r.status_code, 200)
+
+        assignments = r.json()['data']
+
+        self.assertEquals(1, len(assignments))
+
+        assignment = assignments[0]
+
+        self.assertEquals(assignment['assignment']['course_homework_id'], course_homework_id)
+        self.assertEquals(assignment['assignment']['class_student_id'], class_student_id)
+        self.assertEquals(assignment['homework']['name'], 'Homework 1')
+
+
 
 
 
