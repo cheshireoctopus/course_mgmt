@@ -1,13 +1,10 @@
-var webpack = require('webpack');
-var config = require('./config.js')
-
 module.exports = {
 	devtool: 'eval', // map console errors to file/line number
 	entry: {
-		js: config.paths.PUBLIC + 'js/main.babel.js',
+		js: './apps/main.babel.js',
 	},
 	output: {
-		path: config.paths.PUBLIC + '/js/build',
+		path: './build',
 		filename: 'bundle.js',
 	},
 	module: {

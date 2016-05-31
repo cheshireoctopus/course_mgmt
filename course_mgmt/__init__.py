@@ -3,7 +3,7 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.engine import Engine
 from sqlalchemy import event
-
+from flask import render_template
 
 # Sqlite doesn't enforce Foreign Keys by default. This enables it
 @event.listens_for(Engine, "connect")
@@ -12,10 +12,8 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
     cursor.execute("PRAGMA foreign_keys=ON")
     cursor.close()
 
-
-#app = Flask(__name__, static_folder='front_end/public')
-#app = Flask(__name__, static_folder='lol/hai', static_url_path='/static')
-app = Flask(__name__, static_folder='front_end/public', static_url_path='/static')
+# Set static assets path
+app = Flask(__name__, static_folder='front_end/build', static_url_path='/static')
 
 app.jinja_env.add_extension('pyjade.ext.jinja.PyJadeExtension')
 
@@ -28,21 +26,13 @@ app.config['SQLALCHEMY_DATABASE_URI'] = sqlite_path
 # Secret key is required for CSR stuff change this to something more secure
 app.secret_key = 'abc123'
 
-from flask import render_template
+# Routes
 @app.route('/')
 def index():
-    return app.send_static_file('index.html')
-    #return render_template('index.jade', data={'app': 'classes'})
+    return render_template('index.jade', data={'app': 'classes'})
 
 @app.route('/class/')
 def classes():
-    #return app.send_static_file('index.jads')
     return render_template('index.jade', data={'app': 'classes'})
-
-
-@app.route('/static/')
-def lol():
-    app.logger.debug("LOLOL")
-    return app.send_static_file('js/build/bundle.js')
 
 from views import *

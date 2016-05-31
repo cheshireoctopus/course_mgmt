@@ -45,7 +45,6 @@ node_modules
 # User
 notes
 .env
-data
 
 # Webpack Bundles
 public/js/build/*
@@ -57,4 +56,7 @@ public/js/build/*
 *.pyc
 
 # Sqlite db file
-db.db
+*.db
+
+# Python Virutal Environment
+venv
