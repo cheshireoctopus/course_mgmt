@@ -2,7 +2,6 @@ module.exports = {
 	paths: {
 		ROUTES: './app/routes/',
 		GITHUB: './app/routes/',
-		PUBLIC: './public/',
 		VIEWS: './views/',
 	},
 	githubAPI: {
