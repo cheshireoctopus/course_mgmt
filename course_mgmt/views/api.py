@@ -349,8 +349,8 @@ def class_create():
     Request should be:
         {
             "data": [
-                {"course_id": 1, "start_date": "2015-01-01 00:00:00", "end_date": "2015-06-06"},
-                {"course_id": 1, "start_date": "2015-01-01 00:00:00", "end_date": "2015-06-06"},
+                {"course_id": 1, "start_dt": "2015-01-01 00:00:00", "end_dt": "2015-06-06"},
+                {"course_id": 1, "start_dt": "2015-01-01 00:00:00", "end_dt": "2015-06-06"},
             ]
         }
 
@@ -367,8 +367,8 @@ def class_create():
 
     try:
         classes = [Class(course_id=class_obj['course_id'],
-                         start_date=datetime.strptime(class_obj['start_date'], date_format),
-                         end_date=datetime.strptime(class_obj['end_date'], date_format))
+                         start_dt=datetime.strptime(class_obj['start_dt'], date_format),
+                         end_dt=datetime.strptime(class_obj['end_dt'], date_format))
                    for class_obj in data
         ]
     except ValueError as ex:
@@ -396,8 +396,12 @@ def student_create():
     keys = 'data'
     data = extract_form(form, keys)
 
-    students = [Student(first_name=student['first_name'], last_name=student['last_name'])
-                        for student in data]
+    students = [Student(first_name=student['first_name'],
+                        last_name=student['last_name'],
+                        github_username=student['github_username'],
+                        email=student['email'],
+                        photo_url=student['photo_url'])
+                for student in data]
 
     db.session.bulk_save_objects(students, return_defaults=True)
 
@@ -412,7 +416,9 @@ def student_create():
 @try_except
 def class_add_student(class_id):
     '''
-    Adds a class to a student.
+    Adds a student to a class.
+    This also instantiates all Attendance and Assignments.
+
     There are two ways to hit this API:
         Student has already been created:
             {'student_id': 1}
@@ -431,10 +437,10 @@ def class_add_student(class_id):
                           for class_student in data]
     except KeyError as ex:
         try:
-            students = save_bulk(Student, data, ['first_name', 'last_name'])
+            students = save_bulk(Student, data, ['first_name', 'last_name', 'github_username', 'email', 'photo_url'])
 
         except UserError as ex:
-            raise UserError("Expecting either (class_id, student_id) or (class_id, first_name, last_name")
+            raise UserError("Expecting either (class_id, student_id) or (class_id, first_name, last_name, github_username, email, photo_url")
 
         class_students = [ClassStudent(class_id=class_id,
                                        student_id=student.id)
@@ -501,10 +507,17 @@ def homework_create():
 @app.route('/api/course/<int:course_id>/homework/', methods=['POST'])
 @try_except
 def course_add_homework(course_id):
+    '''
+    Adds a homework to a Course.
+
+    TODO: This needs to instantiate the assignments for all students in the class
+    '''
     form = request.json
     keys = 'data'
     data = extract_form(form, keys)
 
+
+    # The following permits us to add independent homeworks or dependent homeworks
     try:
         course_homeworks = [CourseHomework(course_id=course_id,
                                           homework_id=homework['homework_id'])
@@ -520,6 +533,18 @@ def course_add_homework(course_id):
                            for homework in homeworks]
 
     db.session.bulk_save_objects(course_homeworks, return_defaults=True)
+
+    # Create assignment records
+    q = db.session.query(ClassStudent).join(Class).filter(Class.course_id == course_id)
+    class_student_ids = [class_student.id for class_student in q]
+    if class_student_ids:
+        assignments = []
+        for class_student_id in class_student_ids:
+            for course_homework in course_homeworks:
+                assignments.append(Assignment(course_homework_id=course_homework.course_homework,
+                                              class_student_id=class_student_id))
+
+        db.session.bulk_save_objects(assignments, return_defaults=False)
 
     db.session.commit()
 
@@ -542,6 +567,11 @@ def course_read_homework(course_id):
 @app.route('/api/class/<int:class_id>/lecture/', methods=['POST'])
 @try_except
 def class_create_lecture(class_id):
+    '''
+    Adds a lecture to a class
+
+    TODO: this needs to instantiate the Attendance for all students
+    '''
     form = request.json
     keys = 'data'
     data = extract_form(form, keys)
@@ -549,10 +579,19 @@ def class_create_lecture(class_id):
     for lecture in data:
         lecture['class_id'] = class_id
 
-    lectures = save_bulk(Lecture, data, ['class_id', 'name', 'dt'])
+    lectures = save_bulk(Lecture, data, ['class_id', 'name', 'description', 'dt'])
 
-    # Initialize Attendance+
+    # Initialize Attendance
+    q = db.session.query(ClassStudent).join(Class).filter(Class.id == class_id)
+    class_student_ids = [class_student.id for class_student in q]
+    if class_student_ids:
+        attendances = []
+        for class_student_id in class_student_ids:
+            for lecture in lectures:
+                attendances.append(Attendance(lecture_id=lecture.id,
+                                              class_student_id=class_student_id))
 
+        db.session.bulk_save_objects(attendances, return_defaults=False)
 
     db.session.commit()
 

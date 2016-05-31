@@ -58,10 +58,10 @@ class Course(BaseModel):
 
 class Class(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
-    start_date = db.Column(db.DateTime, nullable=False)
-    end_date = db.Column(db.DateTime, nullable=False)
+    start_dt = db.Column(db.DateTime, nullable=False)
+    end_dt = db.Column(db.DateTime, nullable=False)
     course_id = db.Column(db.Integer, db.ForeignKey('course.id'), nullable=False)
-    __table_args__ = (db.UniqueConstraint('course_id', 'start_date', 'end_date'),)
+    __table_args__ = (db.UniqueConstraint('course_id', 'start_dt', 'end_dt'),)
 
     plural = 'class'
 
@@ -70,6 +70,9 @@ class Student(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
     first_name = db.Column(db.String, nullable=False)
     last_name = db.Column(db.String, nullable=False)
+    github_username = db.Column(db.String, nullable=False)
+    email = db.Column(db.String, nullable=False)
+    photo_url = db.Column(db.String)
 
     plural = 'student'
 
@@ -87,6 +90,7 @@ class Lecture(BaseModel):
     '''
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String)
+    description = db.Column(db.String)
     dt = db.Column(db.Date)
     class_id = db.Column(db.Integer, db.ForeignKey('class.id'), nullable=False)
 
@@ -124,7 +128,7 @@ class Assignment(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
     class_student_id = db.Column(db.Integer, db.ForeignKey('class_student.id'), nullable=False)
     course_homework_id = db.Column(db.Integer, db.ForeignKey('course_homework.id'), nullable=False)
-    score = db.Column(db.Integer, default=0)
+    is_completed = db.Column(db.Integer, default=0)
     __table_args__ = (db.UniqueConstraint('class_student_id', 'course_homework_id'),)
 
     plural = 'assignment'
