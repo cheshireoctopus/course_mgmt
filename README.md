@@ -4,12 +4,8 @@ A simple application for teaching a class using GitHub.
 
 Set up for your own course:
 
-1. `pip install` the following at root (use of [virutal environments](http://docs.python-guide.org/en/latest/dev/virtualenvs/) is recommended):
-  - `flask`
-  - `flask_sqlalchemy`
-  - `pyjade`
-  - `requests`
-  - `nose`
+1. `pip install -r requirements.txt` at root (use of [virutal environments](http://docs.python-guide.org/en/latest/dev/virtualenvs/) is recommended):
+
 2. Create a `.env` file at `course_mgmt/front_end/` root containing:
   - `githubUsername='YOURGITHUBUSERNAME'`
 
