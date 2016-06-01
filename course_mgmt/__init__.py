@@ -35,4 +35,10 @@ def index():
 def classes():
     return render_template('index.jade', data={'app': 'classes'})
 
+try:
+    from local_settings import opbeat
+except ImportError:
+    pass
+
 from views import *
+
