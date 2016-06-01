@@ -3,3 +3,4 @@ flask_sqlalchemy
 pyjade
 requests
 nose
+python-coveralls
