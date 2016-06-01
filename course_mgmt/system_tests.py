@@ -428,7 +428,6 @@ class TestInitializations(unittest.TestCase):
         self.assertEquals(assignment['assignment']['course_homework_id'], course_homework_id)
         self.assertEquals(assignment['assignment']['class_student_id'], class_student_id)
         self.assertEquals(assignment['homework']['name'], 'Homework 1')
-        self.assertEquals(1, 1)
 
 
 
