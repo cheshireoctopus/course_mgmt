@@ -4,3 +4,4 @@ pyjade
 requests
 nose
 python-coveralls
+coverage

@@ -1,4 +1,6 @@
 [![Build Status](https://travis-ci.org/cheshireoctopus/course_mgmt.png)](https://travis-ci.org/cheshireoctopus/course_mgmt)
+[![Coverage Status](https://coveralls.io/repos/github/cheshireoctopus/course_mgmt/badge.svg?branch=master)](https://coveralls.io/github/cheshireoctopus/course_mgmt?branch=master)
+Textile
 #GitHub Course Management
 
 A simple application for teaching a class using GitHub.
