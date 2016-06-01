@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
-python run.py &
+python run.py >/dev/null/ &
 nosetests

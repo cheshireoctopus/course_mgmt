@@ -1,3 +1,4 @@
+[![Build Status](https://travis-ci.org/cheshireoctopus/course_mgmt.png)](https://travis-ci.org/cheshireoctopus/course_mgmt)
 #GitHub Course Management
 
 A simple application for teaching a class using GitHub.
