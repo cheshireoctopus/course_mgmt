@@ -60,3 +60,6 @@ public/js/build/*
 
 # Python Virutal Environment
 venv
+
+# Python Coverage
+.coverage
