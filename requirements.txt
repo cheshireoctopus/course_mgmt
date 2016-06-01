@@ -1,5 +1,5 @@
-pip install flask
-pip install flask_sqlalchemy
-pip install pyjade
-pip install requests
-pip install nose
+flask
+flask_sqlalchemy
+pyjade
+requests
+nose
