@@ -1,4 +1,4 @@
-[![Stories in Backlog](https://badge.waffle.io/cheshireoctopus/course_mgmt.png?label=backlog&title=Ready)](https://waffle.io/cheshireoctopus/course_mgmt)
+[![Stories in Backlog](https://badge.waffle.io/cheshireoctopus/course_mgmt.png?label=backlog&title=Backlog)](https://waffle.io/cheshireoctopus/course_mgmt)
 [![Build Status](https://travis-ci.org/cheshireoctopus/course_mgmt.png)](https://travis-ci.org/cheshireoctopus/course_mgmt)
 [![Coverage Status](https://coveralls.io/repos/github/cheshireoctopus/course_mgmt/badge.png?branch=master)](https://coveralls.io/github/cheshireoctopus/course_mgmt?branch=master)
 [![Code Health](https://landscape.io/github/cheshireoctopus/course_mgmt/master/landscape.svg?style=flat)](https://landscape.io/github/cheshireoctopus/course_mgmt/master)
