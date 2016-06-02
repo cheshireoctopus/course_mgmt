@@ -245,7 +245,7 @@ def save_bulk(model, data, keys):
             kwargs = {}
             for key in keys:
                 app.logger.debug(key)
-                if isinstance(getattr(model, key).type, Date):
+                if isinstance(getattr(model, key).type, DateTime):
                     app.logger.debug("WTF")
                     kwargs[key] = datetime.strptime(obj[key], date_format)
                 else:
@@ -282,7 +282,7 @@ def drop_db():
     db.create_all()
     return jsonify({}), 200
 
-@app.route('/api/course/', methods=['POST'])
+@app.route('/api/courseaa/', methods=['POST'])
 @try_except
 def course_create():
     '''

@@ -91,7 +91,7 @@ class Lecture(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String)
     description = db.Column(db.String)
-    dt = db.Column(db.Date)
+    dt = db.Column(db.DateTime)
     class_id = db.Column(db.Integer, db.ForeignKey('class.id'), nullable=False)
 
     plural = 'lecture'
@@ -134,4 +134,4 @@ class Assignment(BaseModel):
     plural = 'assignment'
 
 
-all_models = [Course, Class, Student, Lecture, Homework]
+all_models = [Student, Lecture, Homework]
