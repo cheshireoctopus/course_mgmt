@@ -323,21 +323,22 @@ def course_create():
     return jsonify({"meta": {'len':len(courses)}, "data": courses}), 200
 
 #TODO update/put Course
-
+'''
 @app.route('/api/course/<int:id>/class/', methods=['GET'])
 @try_except
 def course_get_classes_by_course_id(id):
-    '''
-    Find all the Classes for a given Course
-    :param id: a Course ID
-    :return: a list of classes
-    '''
+
+    #Find all the Classes for a given Course
+    #:param id: a Course ID
+    #:return: a list of classes
+
 
     #TODO How should this be ordered?
     classes = [class_obj.json for class_obj in db.session.query(Class).filter_by(course_id=id)]
 
     return jsonify({'meta': {'len': len(classes)}, 'data': classes})
-
+'''
+'''
 @app.route('/api/course/<int:course_id>/homework/', methods=['GET'])
 @try_except
 def course_get_homework_by_course_id(course_id):
@@ -359,7 +360,7 @@ def class_get_homework_by_class_id(class_id):
         })
 
     return jsonify({"meta": {"len": len(ret)}, "data": ret}), 200
-
+'''
 @app.route('/api/class/<int:class_id>/assignment/', methods=['GET'])
 @try_except
 def class_get_assignment_by_class_id(class_id):

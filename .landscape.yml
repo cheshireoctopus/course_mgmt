@@ -1,0 +1,8 @@
+doc-warnings: yes
+strictness: veryhigh
+uses:
+    - flask
+python-targets:
+    - 2
+pep8:
+    full: true
