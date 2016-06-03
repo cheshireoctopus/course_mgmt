@@ -42,6 +42,7 @@ def create_course(name):
     Utility function to create a single course
     '''
     api = '/api/course/'
+    method = 'POST'
     data = {
         'data': [
             {
@@ -50,11 +51,26 @@ def create_course(name):
         ]
     }
 
-    return hit_api(api, data)
+    return hit_api(api, data, method=method)
+
+def update_course(id, name):
+    api = '/api/course/'
+    method = 'PUT'
+    data = {
+        'data': [
+            {
+                'id': id,
+                'name': name
+            }
+        ]
+    }
+
+    return hit_api(api, data, method=method)
 
 def create_lecture(class_id, name, description, dt):
     # Utility function to create a single lecture
     api = '/api/class/{}/lecture/'.format(class_id)
+    method = 'POST'
     data = {
         'data': [
             {
@@ -65,13 +81,33 @@ def create_lecture(class_id, name, description, dt):
         ]
     }
 
-    return hit_api(api, data)
+    return hit_api(api, data, method)
+
+
+def update_lecture(id, name, description, dt):
+    # Utility function to create a single lecture
+    api = '/api/lecture/'
+    method = 'PUT'
+    data = {
+        'data': [
+            {
+                'id': id,
+                'name': name,
+                'description': description,
+                'dt': dt
+            }
+        ]
+    }
+
+    return hit_api(api, data, method=method)
+
 
 def create_class(course_id, start_dt, end_dt):
     '''
     Utility function to create a single class
     '''
     api = '/api/class/'
+    method = 'POST'
     data = {
         'data': [
             {
@@ -82,11 +118,27 @@ def create_class(course_id, start_dt, end_dt):
         ]
     }
 
-    return hit_api(api, data)
+    return hit_api(api, data, method=method)
+
+def update_class(id, start_dt, end_dt):
+    api = '/api/class/'
+    method = 'PUT'
+    data = {
+        'data': [
+            {
+                'id': id,
+                'start_dt': start_dt,
+                'end_dt': end_dt
+            }
+        ]
+    }
+
+    return hit_api(api, data, method=method)
 
 def create_homework_independent(name):
     # Creates an indepenent homework
     api = '/api/homework/'
+    method = 'POST'
     data = {
         'data': [
             {
@@ -95,10 +147,25 @@ def create_homework_independent(name):
         ]
     }
 
-    return hit_api(api, data)
+    return hit_api(api, data, method=method)
+
+def update_homework(id, name):
+    api = '/api/homework/'
+    method = 'PUT'
+    data = {
+        'data': [
+            {
+                'id': id,
+                'name': name
+            }
+        ]
+    }
+
+    return hit_api(api, data, method=method)
 
 def add_homework_independent_to_course(course_id, homework_id):
     api = '/api/course/{}/homework/'.format(course_id)
+    method = 'POST'
     data = {
         'data': [
             {
@@ -107,10 +174,11 @@ def add_homework_independent_to_course(course_id, homework_id):
         ]
     }
 
-    return hit_api(api, data)
+    return hit_api(api, data, method=method)
 
 def create_homework_dependent(course_id, name):
     api = '/api/course/{}/homework/'.format(course_id)
+    method = 'POST'
     data = {
         'data': [
             {
@@ -119,10 +187,11 @@ def create_homework_dependent(course_id, name):
         ]
     }
 
-    return hit_api(api, data)
+    return hit_api(api, data, method=method)
 
 def create_student_independent(first_name, last_name, github_username, email, photo_url):
     api = '/api/student/'
+    method = 'POST'
     data = {
         'data': [
             {
@@ -135,10 +204,29 @@ def create_student_independent(first_name, last_name, github_username, email, ph
         ]
     }
 
-    return hit_api(api, data)
+    return hit_api(api, data, method=method)
+
+def update_student(id, first_name, last_name, github_username, email, photo_url):
+    api = '/api/student/'
+    method = 'PUT'
+    data = {
+        'data': [
+            {
+                'id': id,
+                'first_name': first_name,
+                'last_name': last_name,
+                'github_username': github_username,
+                'email': email,
+                'photo_url': photo_url
+            }
+        ]
+    }
+
+    return hit_api(api, data, method=method)
 
 def add_student_independent_to_class(class_id, student_id):
     api = '/api/class/{}/student/'.format(class_id)
+    method = 'POST'
     data = {
         'data': [
             {
@@ -147,10 +235,11 @@ def add_student_independent_to_class(class_id, student_id):
         ]
     }
 
-    return hit_api(api, data)
+    return hit_api(api, data, method=method)
 
 def create_student_dependent(class_id, first_name, last_name, github_username, email, photo_url):
     api = '/api/class/{}/student/'.format(class_id)
+    method = 'POST'
     data = {
         'data': [
             {
@@ -163,7 +252,7 @@ def create_student_dependent(class_id, first_name, last_name, github_username, e
         ]
     }
 
-    return hit_api(api, data)
+    return hit_api(api, data, method=method)
 
 class TestAll(unittest.TestCase):
     def setUp(self):
@@ -173,6 +262,7 @@ class TestAll(unittest.TestCase):
     def test_all_create(self):
         '''
         This system test hits all of the create APIs happy path
+        The purpose of this is to quickly tell if anything major is broken
         :return:
         '''
         ## Create Course
@@ -181,11 +271,20 @@ class TestAll(unittest.TestCase):
 
         course_id = get_first_id_from_response(r)
 
+        ## Update Course
+
+        r = update_course(id=course_id, name='Chandler''s Course')
+        self.assertEquals(r.status_code, 200)
+
         ## Create Class
         r = create_class(course_id=course_id, start_dt='2016-01-01 00:00:00', end_dt='2016-05-30 00:00:00')
         self.assertEquals(r.status_code, 200)
 
         class_id = get_first_id_from_response(r)
+
+        ## Update Class
+        r = update_class(id=class_id, start_dt='2015-01-01 00:00:00', end_dt='2015-05-30 00:00:00')
+        self.assertEquals(r.status_code, 200)
 
         ## Create Lecture
         r = create_lecture(class_id=class_id, name='Lecture 1', description='The first lecturel', dt='2016-01-01 00:00:00')
@@ -193,12 +292,19 @@ class TestAll(unittest.TestCase):
 
         lecture_id = get_first_id_from_response(r)
 
+        r = update_lecture(id=lecture_id, name='Lecture 2', description='The second lecture', dt='2015-01-01 00:00:00')
+        self.assertEquals(r.status_code, 200)
+
         ## Create Independent Homework and add to Course
         # Create Independent Homework
         r = create_homework_independent('Homework 1')
         self.assertEquals(r.status_code, 200)
 
         homework_independent_id = get_first_id_from_response(r)
+
+        # Update homework
+        r = update_homework(id=homework_independent_id, name='Homework 2')
+        self.assertEquals(r.status_code, 200)
 
         # Add independent homework to Course
         r = add_homework_independent_to_course(course_id=course_id, homework_id=homework_independent_id)
@@ -219,6 +325,11 @@ class TestAll(unittest.TestCase):
         self.assertEquals(r.status_code, 200)
 
         student_independent_id = get_first_id_from_response(r)
+
+        # Update Student
+        r = update_student(id=student_independent_id, first_name='Chandler', last_name='Moisen', github_username='ches',
+                           email='hello@chandlermoisen.com', photo_url='http://chandlermoisen.com/pic/jpg')
+        self.assertEquals(r.status_code, 200)
 
         # Add Independent Student to Class
         r = add_student_independent_to_class(class_id, student_independent_id)

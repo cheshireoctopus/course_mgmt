@@ -12,7 +12,7 @@ from course_mgmt.models import *
 
 from course_mgmt import app
 from flask.ext.classy import FlaskView, route
-from flask import jsonify, request
+from flask import jsonify, request, url_for, redirect, g, session
 
 from datetime import datetime
 date_format = '%Y-%m-%d %H:%M:%S'
@@ -21,10 +21,6 @@ from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 from werkzeug.exceptions import BadRequest
 from functools import wraps
-
-
-
-
 
 
 
@@ -468,12 +464,24 @@ class ClassView(BaseView):
 
         TODO: this needs to instantiate the Attendance for all students
         '''
+        app.logger.debug("HAI IN CLASS/ID/LECTURE/")
         form = request.json
         keys = 'data'
         data = extract_form(form, keys)
 
+        # This will modify request.json when it arrives in lecture.post, hopefully
         for lecture in data:
             lecture['class_id'] = class_id
+        app.logger.debug("ROUTING TO LECTUREVIEW:POST")
+
+        # Why do we use code=307? It directs to the GET if we don't.
+        # Why? Not a clue, read this: http://stackoverflow.com/a/15480983/1391717
+
+        g.data = data
+
+        session['data'] = data
+
+        return redirect(url_for('LectureView:post'), code=307)
 
         lectures = bulk_save(Lecture, data, ['class_id', 'name', 'description', 'dt'])
 
@@ -584,10 +592,59 @@ class StudentView(BaseView):
 
         return jsonify({"meta": {"len": len(ret)}, "data": ret})
 
+    @route('/wtfyo/')
+    def wtf(self):
+        return 'wtf d'
+
 
 class LectureView(BaseView):
     model = Lecture
     post_keys = ['name', 'description', 'dt', 'class_id']
+
+    @try_except
+    def post(self):
+        app.logger.debug("IN SIDE LECTURE VIEW POST")
+        app.logger.debug("request.json is {}".format(request.json))
+        app.logger.debug("request.form is {}".format(request.json))
+
+        #app.logger.debug(url_for('StudentView:wtf', class_id=1))  # Class.create_class_lecture(class_id)
+        #return redirect(url_for('StudentView:wtf', class_id=1))
+
+        #app.logger.debug(url_for('ClassView:class_create_lecture', class_id=1))  # Class.create_class_lecture(class_id)
+        #return redirect(url_for('ClassView:class_create_lecture', class_id=1))
+
+        if 'data' in session:
+            # If request is from /class/<class_id>/lecture/ it redirects here
+            # pull out data from session which is modified with the lecture_id
+            data = session.pop('data')
+        else:
+            form = request.json
+            keys = 'data'
+            data = extract_form(form, keys)
+
+        #return redirect(url_for('LectureView:post'))
+
+        lectures = bulk_save(Lecture, data, self.post_keys)
+
+        class_ids = ((lecture.class_id for lecture in lectures))
+
+        # Initialize Attendance
+        q = db.session.query(ClassStudent).join(Class).filter(Class.id.in_(class_ids))
+        class_student_ids = [class_student.id for class_student in q]
+        if class_student_ids:
+            attendances = []
+            for class_student_id in class_student_ids:
+                for lecture in lectures:
+                    attendances.append(Attendance(lecture_id=lecture.id,
+                                                  class_student_id=class_student_id))
+
+            db.session.bulk_save_objects(attendances, return_defaults=False)
+
+        db.session.commit()
+
+        lectures = [lecture.json for lecture in lectures]
+
+        return jsonify({"meta": {"len": len(lectures)}, "data": lectures})
 
     @route('/<int:lecture_id>/attendance/', methods=['GET'])
     @try_except
@@ -611,6 +668,9 @@ class LectureView(BaseView):
             })
 
         return jsonify({"meta": {"len": len(ret)}, "data": ret}), 200
+
+
+
 
 
 class HomeworkView(BaseView):

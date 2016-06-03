@@ -35,6 +35,7 @@ def index():
 def classes():
     return render_template('index.jade', data={'app': 'classes'})
 
+# TODO enable this better
 try:
     from local_settings import opbeat
 except ImportError:
