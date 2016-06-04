@@ -76,14 +76,6 @@ class Student(BaseModel):
 
     plural = 'student'
 
-
-class ClassStudent(BaseModel):
-    id = db.Column(db.Integer, primary_key=True)
-    class_id = db.Column(db.Integer, db.ForeignKey('class.id'), nullable=False)
-    student_id = db.Column(db.Integer, db.ForeignKey('student.id'), nullable=False)
-    __table_args__ = (db.UniqueConstraint('class_id', 'student_id'),)
-
-
 class Lecture(BaseModel):
     '''
     This could probably be associated to the course level just like homework is ...
@@ -92,22 +84,17 @@ class Lecture(BaseModel):
     name = db.Column(db.String)
     description = db.Column(db.String)
     dt = db.Column(db.DateTime)
-    class_id = db.Column(db.Integer, db.ForeignKey('class.id'), nullable=False)
+    #class_id = db.Column(db.Integer, db.ForeignKey('class.id'), nullable=False)
 
     plural = 'lecture'
 
-
-
-
-
-class Attendance(BaseModel):
+class ClassStudent(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
-    lecture_id = db.Column(db.Integer, db.ForeignKey('lecture.id'), nullable=False)
-    class_student_id = db.Column(db.Integer, db.ForeignKey('class_student.id'), nullable=False)
-    did_attend = db.Column(db.Boolean, nullable=False, default=False)
-    __table_args__ = (db.UniqueConstraint('lecture_id', 'class_student_id'),
-                      # Index it both way (e.g., include student_id, lecture_id) as per the access patterns
-                      )
+    class_id = db.Column(db.Integer, db.ForeignKey('class.id'), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey('student.id'), nullable=False)
+    __table_args__ = (db.UniqueConstraint('class_id', 'student_id'),)
+
+
 
 
 
@@ -115,23 +102,58 @@ class Homework(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String, nullable=False)
 
-    plural = 'homework'
+    # A Homework can be dervived from another homework
+    # This is the case when a Class Homework is modified from the usual course homework
+    parent_id = db.Column(db.Integer, db.ForeignKey('homework.id'), nullable=True)
 
 
 class CourseHomework(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
     course_id = db.Column(db.Integer, db.ForeignKey('course.id'), nullable=False)
     homework_id = db.Column(db.Integer, db.ForeignKey('homework.id'), nullable=False)
+    course_lecture_id = db.Column(db.Integer, db.ForeignKey('course_lecture.id'), nullable=True)
+
     __table_args__ = (db.UniqueConstraint('course_id', 'homework_id'),)
+
+class ClassHomework(BaseModel):
+    id = db.Column(db.Integer, primary_key=True)
+    class_id = db.Column(db.Integer, db.ForeignKey('class.id'), nullable=False)
+    homework_id = db.Column(db.Integer, db.ForeignKey('homework.id'), nullable=False)
+    class_lecture_id = db.Column(db.Integer, db.ForeignKey('class_lecture.id'), nullable=True)
+    __table_args__ = (db.UniqueConstraint('class_id', 'homework_id'),)
+
+
+class CourseLecture(BaseModel):
+    id = db.Column(db.Integer, primary_key=True)
+    course_id = db.Column(db.Integer, db.ForeignKey('course.id'), nullable=False)
+    lecture_id = db.Column(db.Integer, db.ForeignKey('lecture.id'), nullable=False)
+
+    __table_args__ = (db.UniqueConstraint('course_id', 'lecture_id'),)
+
+class ClassLecture(BaseModel):
+    id = db.Column(db.Integer, primary_key=True)
+    class_id = db.Column(db.Integer, db.ForeignKey('class.id'), nullable=False)
+    lecture_id = db.Column(db.Integer, db.ForeignKey('lecture.id'), nullable=False)
+
+    __table_args__ = (db.UniqueConstraint('class_id', 'lecture_id'),)
+
 
 class Assignment(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
     class_student_id = db.Column(db.Integer, db.ForeignKey('class_student.id'), nullable=False)
-    course_homework_id = db.Column(db.Integer, db.ForeignKey('course_homework.id'), nullable=False)
+    class_homework_id = db.Column(db.Integer, db.ForeignKey('class_homework.id'), nullable=False)
     is_completed = db.Column(db.Integer, default=0)
-    __table_args__ = (db.UniqueConstraint('class_student_id', 'course_homework_id'),)
 
-    plural = 'assignment'
+    __table_args__ = (db.UniqueConstraint('class_student_id', 'class_homework_id'),)
 
+class Attendance(BaseModel):
+    id = db.Column(db.Integer, primary_key=True)
+    class_lecture_id = db.Column(db.Integer, db.ForeignKey('class_lecture.id'), nullable=False)
+    class_student_id = db.Column(db.Integer, db.ForeignKey('class_student.id'), nullable=False)
+    did_attend = db.Column(db.Boolean, nullable=False, default=False)
+
+    __table_args__ = (db.UniqueConstraint('class_lecture_id', 'class_student_id'),
+                      # TODO ? Index it both ways (e.g., include student_id, lecture_id) as per the access patterns
+                      )
 
 all_models = [Student, Lecture, Homework]
