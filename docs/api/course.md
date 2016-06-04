@@ -125,9 +125,9 @@ Payload:
     {
         "data": [
             {
-                "name": "Python 101"
+                "name": "Why Python > Java"
             },{
-                "name": "Javascript 101"
+                "name": "Why Python > JavaScript"
             }
         ]
     }
@@ -138,10 +138,37 @@ Response:
         "data": [
             {
                 "id": 1,
-                "name": "Python 101"
+                "name": "Why Python > Java",
+                "course_id": 1
             },{
                 "id: 2,
-                "name": "Javascript 101"
+                "name": "Why Python > JavaScript",
+                "course_id": 1
+            }
+        ]
+    }
+
+## Get all Classes for a Course
+Key      | Value
+-------- | --------
+URI      | /api/course/{id}/class/
+Method   | GET
+
+Response:
+
+    {
+        "meta": {
+            "len": 2,
+        },
+        "data": [
+            {
+                "id": 1,
+                "name": "Why Python > Java",
+                "course_id": 1
+            },{
+                "id: 2,
+                "name": "Why Python > JavaScript",
+                "course_id": 1
             }
         ]
     }
@@ -149,7 +176,7 @@ Response:
 ## Add Homework to a Course
 Key      | Value
 -------- | --------
-URI      | /api/course/{id}/hoemwork/
+URI      | /api/course/{id}/homework/
 Method   | POST
 Note     | This can NOT be accomplished through [Homework](homework.md).
 
@@ -175,7 +202,7 @@ Payload:
     {
         "data": [
             {
-                "name": "Why Python > Java"
+                "name": "Metaclasses"
             },
             ...
         ]
@@ -200,7 +227,7 @@ Response:
 Note that you will NOT receive the Homework's attributes, other than the `id`.
 If you want that, then create a Homework through the [Homework](homework.md) API.
 
-## See all Homework for a Class
+## See all Homework for a Course
 Key      | Value
 -------- | --------
 URI      | /api/course/{id}/homework/
@@ -214,7 +241,7 @@ Response:
         "data": [
             {
                 "id": 1,
-                "name": "Why Python > Java"
+                "name": "Metaclasses"
             }
         ]
     }
