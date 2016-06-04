@@ -9,9 +9,8 @@ Key      | Value
 -------- | --------
 URI      | /api/course
 Method   | POST
-Data     |
-URI    /api/course/
-Data
+Payload:
+
     {
       "data": [
         {
@@ -19,6 +18,7 @@ Data
         }
       ]
     }
+
 Does it work | probably not
 
 ### PUT
