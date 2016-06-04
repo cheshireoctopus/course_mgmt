@@ -1,6 +1,6 @@
 # Summary
 
 * [Introduction](README.md)
-* [API](docs/api.md)
+* [API](api.md)
 * Data Model
 
