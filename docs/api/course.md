@@ -1,11 +1,9 @@
-# API
+# Course
 
-
-
-## Course
-
-### POST
-    /api/course/
+## Create a Course
+Method POST
+URI    /api/course/
+Data
     {
       "data": [
         {
@@ -24,8 +22,3 @@
         }
       ]
     }
-
-
-
-
-
