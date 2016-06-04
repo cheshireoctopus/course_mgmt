@@ -303,6 +303,11 @@ class CourseView(BaseView):
     @route('/<int:course_id>/homework/', methods=['GET'])
     @try_except
     def course_read_homework(self, course_id):
+        '''
+        Should this return the associated homework IDs?
+        :param course_id:
+        :return:
+        '''
         homeworks = [homework.json for homework in db.session.query(Homework)
                                                    .join(CourseHomework)
                                                    .filter(CourseHomework.course_id == course_id)]
