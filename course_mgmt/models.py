@@ -38,6 +38,15 @@ def to_json(inst, cls):
     return d
 
 
+'''
+In shell for testing:
+
+from course_mgmt import app, db
+from course_mgmt.models import *
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from sqlalchemy.orm.exc import NoResultFound
+
+'''
 
 class BaseModel(db.Model):
     '''
@@ -60,7 +69,7 @@ class Class(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
     start_dt = db.Column(db.DateTime, nullable=False)
     end_dt = db.Column(db.DateTime, nullable=False)
-    course_id = db.Column(db.Integer, db.ForeignKey('course.id'), nullable=False)
+    course_id = db.Column(db.Integer, db.ForeignKey('course.id', ondelete='CASCADE'), nullable=False)
     __table_args__ = (db.UniqueConstraint('course_id', 'start_dt', 'end_dt'),)
 
     plural = 'class'
@@ -79,8 +88,8 @@ class Student(BaseModel):
 
 class ClassStudent(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
-    class_id = db.Column(db.Integer, db.ForeignKey('class.id'), nullable=False)
-    student_id = db.Column(db.Integer, db.ForeignKey('student.id'), nullable=False)
+    class_id = db.Column(db.Integer, db.ForeignKey('class.id', ondelete='CASCADE'), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey('student.id', ondelete='CASCADE'), nullable=False)
     __table_args__ = (db.UniqueConstraint('class_id', 'student_id'),)
 
 
@@ -92,7 +101,7 @@ class Lecture(BaseModel):
     name = db.Column(db.String)
     description = db.Column(db.String)
     dt = db.Column(db.DateTime)
-    class_id = db.Column(db.Integer, db.ForeignKey('class.id'), nullable=False)
+    class_id = db.Column(db.Integer, db.ForeignKey('class.id', ondelete='CASCADE'), nullable=False)
 
     plural = 'lecture'
 
@@ -102,8 +111,8 @@ class Lecture(BaseModel):
 
 class Attendance(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
-    lecture_id = db.Column(db.Integer, db.ForeignKey('lecture.id'), nullable=False)
-    class_student_id = db.Column(db.Integer, db.ForeignKey('class_student.id'), nullable=False)
+    lecture_id = db.Column(db.Integer, db.ForeignKey('lecture.id', ondelete='CASCADE'), nullable=False)
+    class_student_id = db.Column(db.Integer, db.ForeignKey('class_student.id', ondelete='CASCADE'), nullable=False)
     did_attend = db.Column(db.Boolean, nullable=False, default=False)
     __table_args__ = (db.UniqueConstraint('lecture_id', 'class_student_id'),
                       # Index it both way (e.g., include student_id, lecture_id) as per the access patterns
@@ -120,14 +129,14 @@ class Homework(BaseModel):
 
 class CourseHomework(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
-    course_id = db.Column(db.Integer, db.ForeignKey('course.id'), nullable=False)
-    homework_id = db.Column(db.Integer, db.ForeignKey('homework.id'), nullable=False)
+    course_id = db.Column(db.Integer, db.ForeignKey('course.id', ondelete='CASCADE'), nullable=False)
+    homework_id = db.Column(db.Integer, db.ForeignKey('homework.id', ondelete='CASCADE'), nullable=False)
     __table_args__ = (db.UniqueConstraint('course_id', 'homework_id'),)
 
 class Assignment(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
-    class_student_id = db.Column(db.Integer, db.ForeignKey('class_student.id'), nullable=False)
-    course_homework_id = db.Column(db.Integer, db.ForeignKey('course_homework.id'), nullable=False)
+    class_student_id = db.Column(db.Integer, db.ForeignKey('class_student.id', ondelete='CASCADE'), nullable=False)
+    course_homework_id = db.Column(db.Integer, db.ForeignKey('course_homework.id', ondelete='CASCADE'), nullable=False)
     is_completed = db.Column(db.Integer, default=0)
     __table_args__ = (db.UniqueConstraint('class_student_id', 'course_homework_id'),)
 

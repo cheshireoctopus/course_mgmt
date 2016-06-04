@@ -261,7 +261,6 @@ class BaseView(FlaskView):
         else:
             data = request.json['data']
             ids = [obj['id'] for obj in data]
-            num_deleted = 5
             num_deleted = db.session.query(self.model).filter(self.model.id.in_((id for id in ids))).delete(synchronize_session='fetch')
 
         db.session.commit()

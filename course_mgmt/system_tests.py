@@ -107,7 +107,7 @@ def update_lecture(id, name, description, dt):
     return hit_api(api, data, method=method)
 
 def get_lecture(id):
-    api = '/api/lecture/'
+    api = '/api/lecture/{}'.format(id)
     method = 'GET'
 
     return hit_api(api, method=method)
@@ -344,15 +344,15 @@ class TestAll(unittest.TestCase):
 
         # Get Lecture
         r = get_lecture(lecture_id)
-        self.assert_data_equals(r, id=lecture_id, name='Lecture 1', description='The first lecturel', dt='2016-01-01 00:00:00')
+        self.assert_data_equals(r, id=lecture_id, class_id=class_id, name='Lecture 1', description='The first lecturel', dt='2016-01-01 00:00:00')
 
         # Update lecture
         r = update_lecture(id=lecture_id, name='Lecture 2', description='The second lecture', dt='2015-01-01 00:00:00')
         self.assertEquals(r.status_code, 200)
 
         # Get Lecture
-        r = get_lecture(id)
-        self.assert_data_equals(r, id=lecture_id, name='Lecture 2', description='The second lecture', dt='2015-01-01 00:00:00')
+        r = get_lecture(lecture_id)
+        self.assert_data_equals(r, id=lecture_id, class_id=class_id, name='Lecture 2', description='The second lecture', dt='2015-01-01 00:00:00')
 
         ## Create Independent Homework and add to Course
         # Create Independent Homework
