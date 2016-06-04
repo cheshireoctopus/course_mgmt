@@ -1,7 +1,11 @@
 # Course
 
 ## Create a Course
-Method POST
+
+-------- | --------
+URI      | /api/course
+Method   | POST
+Data     |
 URI    /api/course/
 Data
     {
@@ -11,6 +15,7 @@ Data
         }
       ]
     }
+Does it work | probably not
 
 ### PUT
     /api/course/
