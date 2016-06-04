@@ -1,6 +1,6 @@
 # Summary
 
 * [Introduction](README.md)
-* API
+* [API](docs/api.md)
 * test2
 
