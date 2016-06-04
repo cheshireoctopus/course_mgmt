@@ -6,3 +6,4 @@ requests
 nose
 python-coveralls
 coverage
+markdown

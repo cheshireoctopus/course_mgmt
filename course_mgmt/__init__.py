@@ -4,6 +4,9 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.engine import Engine
 from sqlalchemy import event
 from flask import render_template
+import markdown
+from flask import Markup
+import os
 
 # Sqlite doesn't enforce Foreign Keys by default. This enables it
 @event.listens_for(Engine, "connect")
@@ -34,6 +37,26 @@ def index():
 @app.route('/class/')
 def classes():
     return render_template('index.jade', data={'app': 'classes'})
+
+@app.route('/docs/', defaults={'path': None})
+@app.route('/docs/<path:path>/')
+def doc(path):
+    if path is None:
+        path = 'SUMMARY.md'
+
+    p = os.path.abspath(os.path.join('docs', path))
+
+    with open(p) as f:
+        content = f.readlines()
+
+    content = u''.join(content)
+
+    content = Markup(markdown.markdown(content))
+
+    app.logger.debug("content is {}".format(content))
+
+    return render_template('docs.html', content=content)
+
 
 # TODO enable this better
 try:
