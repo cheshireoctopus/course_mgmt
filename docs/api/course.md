@@ -1,7 +1,11 @@
 # Course
 
-## Create a Course
+Key      | Value
+-------- | --------
+heelo | goodbai
 
+## Create a Course
+Key      | Value
 -------- | --------
 URI      | /api/course
 Method   | POST

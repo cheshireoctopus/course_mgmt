@@ -1,7 +1,4 @@
 {
     "root": "docs/",
-    "structure": {
-        "summary": "docs/SUMMARY.md"
-    },
     "title": "Course Management"
 }
