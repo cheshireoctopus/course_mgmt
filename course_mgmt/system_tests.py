@@ -67,6 +67,11 @@ def update_course(id, name):
 
     return hit_api(api, data, method=method)
 
+def get_course(id):
+    api = '/api/course/{}'.format(id)  # No trailing slashes on ID due to flask-classy constraint
+    method = 'GET'
+    return hit_api(api, method=method)
+
 def create_lecture(class_id, name, description, dt):
     # Utility function to create a single lecture
     api = '/api/class/{}/lecture/'.format(class_id)
@@ -100,6 +105,12 @@ def update_lecture(id, name, description, dt):
     }
 
     return hit_api(api, data, method=method)
+
+def get_lecture(id):
+    api = '/api/lecture/'
+    method = 'GET'
+
+    return hit_api(api, method=method)
 
 
 def create_class(course_id, start_dt, end_dt):
@@ -135,6 +146,11 @@ def update_class(id, start_dt, end_dt):
 
     return hit_api(api, data, method=method)
 
+def get_class(id):
+    api = '/api/class/{}'.format(id)
+    method = 'GET'
+    return hit_api(api, method=method)
+
 def create_homework_independent(name):
     # Creates an indepenent homework
     api = '/api/homework/'
@@ -162,6 +178,12 @@ def update_homework(id, name):
     }
 
     return hit_api(api, data, method=method)
+
+def get_homework(id):
+    api = '/api/homework/{}'.format(id)
+    method = 'GET'
+
+    return hit_api(api, method=method)
 
 def add_homework_independent_to_course(course_id, homework_id):
     api = '/api/course/{}/homework/'.format(course_id)
@@ -259,6 +281,10 @@ class TestAll(unittest.TestCase):
         # Drop and recreate the database
         self.assertEquals(200, drop_and_create_db().status_code)
 
+    def assert_data_equals(self, r, **kwargs):
+        self.assertEquals(r.status_code, 200)
+        self.assertEquals(r.json()['data'], kwargs)
+
     def test_all_create(self):
         '''
         This system test hits all of the create APIs happy path
@@ -271,10 +297,19 @@ class TestAll(unittest.TestCase):
 
         course_id = get_first_id_from_response(r)
 
+        # Get Course
+        r = get_course(id=course_id)
+        self.assert_data_equals(r, id=course_id, name='Matthew''s Course')
+        #self.assertEquals(r.json()['name'], 'Matthew''s Course')
+
         ## Update Course
 
         r = update_course(id=course_id, name='Chandler''s Course')
         self.assertEquals(r.status_code, 200)
+
+        # Get Course
+        r = get_course(id=course_id)
+        self.assert_data_equals(r, id=course_id, name='Chandler''s Course')
 
         ## Create Class
         r = create_class(course_id=course_id, start_dt='2016-01-01 00:00:00', end_dt='2016-05-30 00:00:00')
