@@ -5,25 +5,25 @@
 ## Course
 
 ### POST
-/api/course/
-{
-  "data": [
+    /api/course/
     {
-      "name": {name}
+      "data": [
+        {
+          "name": {name}
+        }
+      ]
     }
-  ]
-}
 
 ### PUT
-/api/course/
-{
-  "data": [
+    /api/course/
     {
-      "id": {id},
-      "name": {name}
+      "data": [
+        {
+          "id": {id},
+          "name": {name}
+        }
+      ]
     }
-  ]
-}
 
 
 
