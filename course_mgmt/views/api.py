@@ -138,7 +138,7 @@ def bulk_save(model, data, keys):
             objs.append(model(**kwargs))
 
     except KeyError as ex:
-        raise UserError("Expecting {}".format(keys))
+        raise UserError("Expecting {}, got {}".format(keys, ex.message))
 
     app.logger.debug("objs are {}".format(objs))
 
@@ -172,21 +172,21 @@ def bulk_update(model, data):
 
 
 
-class Key(object):
-    def __init__(self, service_ids):
-        self.service_ids = service_ids
 
-    def __eq__(self, other):
-        return other in self.service_ids
+def add_many_to_many(data, strong_id_key, strong_id_value, many_model, weak_model, weak_id_key, weak_keys):
+    try:
+        many_many = [many_model(**{strong_id_key: strong_id_value, weak_id_key: obj[weak_id_key]}) for obj in data]
+    except KeyError as ex:
+        try:
+            weaks = bulk_save(weak_model, data, weak_keys)
+        except UserError as ex:
+            raise UserError("Expecting either {} or {}".format(weak_id_key, weak_keys))
 
-    def __hash__(self):
-        return hash(1)
+        many_many = [many_model(**{strong_id_key: strong_id_value, weak_id_key: weak.id}) for weak in weaks]
 
-a = Key(['a','b','c'])
-b = Key(['d','e','f'])
+    db.session.bulk_save_objects(many_many, return_defaults=True)
 
-map = {a: 'a', b: 'b'}
-
+    return many_many
 
 @app.route('/api/drop/', methods=['POST','GET'])
 @try_except
@@ -288,6 +288,7 @@ class BaseView(FlaskView):
 
 
 
+
 class CourseView(BaseView):
     model = Course
     post_keys = ['name']
@@ -311,7 +312,16 @@ class CourseView(BaseView):
                                                    .join(CourseHomework)
                                                    .filter(CourseHomework.course_id == course_id)]
 
-        return jsonify({"meta": {'len': len(homeworks)}, "dt": homeworks})
+        return jsonify({"meta": {'len': len(homeworks)}, "data": homeworks})
+
+    @route('/<int:course_id>/lecture/', methods=['GET'])
+    @try_except
+    def course_read_lecture(self, course_id):
+        lectures = [lecture.json for lecture in db.session.query(Lecture)
+                                                .join(CourseLecture)
+                                                .filter(CourseLecture.course_id == course_id)]
+
+        return jsonify({"meta": {"len": len(lectures)}, "data": lectures})
 
     @route('/<int:course_id>/homework/', methods=['POST'])
     @try_except
@@ -342,7 +352,8 @@ class CourseView(BaseView):
                                for homework in homeworks]
 
         db.session.bulk_save_objects(course_homeworks, return_defaults=True)
-
+        '''
+        # Move this to class homework?
         # Create assignment records
         q = db.session.query(ClassStudent).join(Class).filter(Class.course_id == course_id)
         class_student_ids = [class_student.id for class_student in q]
@@ -354,63 +365,169 @@ class CourseView(BaseView):
                                                   class_student_id=class_student_id))
 
             db.session.bulk_save_objects(assignments, return_defaults=False)
-
-        db.session.commit()
+        '''
 
         course_homeworks = [course_homework.json for course_homework in course_homeworks]
 
+        db.session.commit()
+
         return jsonify({"meta": {'len':len(course_homeworks)}, "data": course_homeworks})
+
+    @route('/<int:course_id>/lecture/', methods=['POST'])
+    def course_add_lecture(self, course_id):
+        form = request.json
+        keys = 'data'
+        data = extract_form(form, keys)
+
+        course_lectures = add_many_to_many(data=data, strong_id_key='course_id', strong_id_value=course_id,
+                                           many_model=CourseLecture, weak_model=Lecture, weak_id_key='lecture_id',
+                                           weak_keys=['name', 'description', 'dt'])
+        '''
+        try:
+            course_lectures = [CourseLecture(course_id=course_id,
+                                             lecture_id=lecture['lecture_id'])
+                                for lecture in data]
+
+        except KeyError as ex:
+            try:
+                lectures = bulk_save(Lecture, data, ['name'])
+            except UserError as ex:
+                app.logger.debug(ex.message)
+                raise UserError("expecting either (lecture_id) or (name)")
+
+            course_lectures = [CourseLecture(course_id=course_id,
+                                             lecture_id=lecture.id)
+                                for lecture in lectures]
+
+        db.session.bulk_save_objects(course_lectures, return_defaults=True)
+        '''
+        course_lectures = [course_lecture.json for course_lecture in course_lectures]
+
+        db.session.commit()
+
+        return jsonify({"meta": {"len": len(course_lectures)}, "data": course_lectures})
+
+    @route('/<int:course_id>/class/', methods=['POST'])
+    def course_add_class(self, course_id):
+        '''
+        Add course_id to data and route to ClassView.post
+        :param course_id:
+        :return:
+        '''
+        form = request.json
+        keys = 'data'
+        data = extract_form(form, keys)
+
+        for clazz in data:
+            clazz['course_id'] = course_id
+
+        session['data'] = data
+
+        return redirect(url_for('ClassView:post'), code=307)
+
+
+
+
 
 
 class ClassView(BaseView):
     model = Class
     post_keys = ['start_dt', 'end_dt', 'course_id']
 
+    @try_except
+    def post(self):
+        '''
+        When a new class is created
+            instantiate the ClassHomework from CourseHomework
+            instantiate the ClassLecture from CourseLecture
+        :return:
+        '''
+
+        if 'data' in session:
+            app.logger.debug("data is in session {}".format(session['data']))
+            data = session.pop('data')
+        else:
+            data = request.json['data']
+
+        if not isinstance(data, list):
+            raise UserError({"data attribute should be dict/json"})
+
+        ## Create Class
+        clazzes = bulk_save(self.model, data, self.post_keys)
+
+        class_ids = [clazz.id for clazz in clazzes]
+
+        ## Instantiate ClassHomework from CourseHomework
+        course_homeworks = db.session.query(CourseHomework).filter(CourseHomework.course_id.in_(class_ids)).all()
+        data = [{'class_id': clazz.id, 'homework_id': course_homework.id} for course_homework in course_homeworks]
+        class_homeworks = bulk_save(ClassHomework, data, ['class_id', 'homework_id'])
+
+        ## Instantiate ClassLecture from CourseLecture
+        course_lectures = db.session.query(CourseLecture).filter(CourseLecture.course_id.in_(class_ids)).all()
+        data = [{'class_id': clazz.id, 'lecture_id': course_lecture.id} for course_lecture in course_lectures]
+        class_lectures = bulk_save(ClassLecture, data, ['class_id', 'lecture_id'])
+
+        clazzes = [clazz.json for clazz in clazzes]
+
+        db.session.commit()
+
+        return jsonify({"meta": {"len": len(clazzes)}, "data": clazzes})
+
+
+
+
     @route('/<int:class_id>/homework/', methods=['GET'])
     @try_except
-    def get_homework(self, class_id):
-        q = db.session.query(Homework, CourseHomework).join(CourseHomework).join(Course).join(Class) \
-            .filter(Class.id == class_id)
+    def class_read_homework(self, class_id):
+        q = db.session.query(Homework, ClassHomework).join(ClassHomework).filter(ClassHomework.class_id == class_id)
 
         ret = []
-        for homework, course_homework in q:
+        for homework, class_homework in q:
             ret.append({
                 'homework': homework.json,
-                'course_homework': course_homework.json
+                'class_homework': class_homework.json
             })
 
         return jsonify({"meta": {"len": len(ret)}, "data": ret}), 200
 
     @route('/<int:class_id>/lecture/', methods=['GET'])
     @try_except
-    def class_read_lectures(self, class_id):
-        lectures = [lecture.json for lecture in db.session.query(Lecture).filter_by(class_id=class_id)]
+    def class_read_lecture(self, class_id):
+        q = db.session.query(Lecture, ClassLecture).join(ClassLecture).filter(ClassLecture.class_id == class_id)
 
-        return jsonify({"meta": {"len": len(lectures)}, "data": lectures})
+        ret = []
+        for lecture, class_lecture in q:
+            ret.append({
+                'lecture': lecture.json,
+                'class_lecture': class_lecture.json
+            })
+
+
+        return jsonify({"meta": {"len": len(ret)}, "data": ret})
 
     @route('/<int:class_id>/assignment/', methods=['GET'])
     @try_except
     def get_assignment(self, class_id):
         '''
         Use this to find the assignments for a class.
-        An Assignment is a CourseHomework that is attached with a ClassStudent
+        An Assignment is a ClassHomework that is attached with a ClassStudent
         Call the URL with a query parmeter like this:
 
-            /api/class/1/assignment/?course_homework_id=1
+            /api/class/1/assignment/?class_homework_id=1
         :param class_id:
         :return:
         '''
         args = request.args
-        course_homework_id = args.get('course_homework_id', None)
+        class_homework_id = args.get('class_homework_id', None)
         app.logger.debug("args is {}".format(args))
-        app.logger.debug("course_homework_id is {}".format(course_homework_id))
+        app.logger.debug("course_homework_id is {}".format(class_homework_id))
 
         q = db.session.query(Homework, Assignment, Student) \
-            .join(CourseHomework).join(Assignment).join(ClassStudent).join(Student) \
-            .filter(ClassStudent.class_id ==class_id)
+            .join(ClassHomework).join(Assignment).join(ClassStudent).join(Student) \
+            .filter(ClassStudent.class_id == class_id)
 
-        if course_homework_id:
-            q = q.filter(Assignment.course_homework_id == course_homework_id)
+        if class_homework_id:
+            q = q.filter(Assignment.class_homework_id == class_homework_id)
 
         app.logger.debug("query is {}".format(q.statement))
 
@@ -431,18 +548,21 @@ class ClassView(BaseView):
     @try_except
     def class_read_attendance(self, class_id):
         '''
-        Initializes or resets all the attendance for a class
+        Use this to find the Attendance for a Class.
+        An Attendance is a ClassLecture that is attached with a ClassStudent
+        Call the URL with a query parmeter like this:
+
+            /api/class/1/assignment/?class_lecture_id=1
         '''
-        q = db.session.query(Lecture, Attendance, Student).join(Attendance).join(ClassStudent).join(Student)\
-            .filter(Lecture.class_id == class_id)
-        '''
-        SELECT lecture.id, lecture.name, lecture.dt, lecture.class_id,
-                attendance.id, attendance.lecture_id, attendance.class_student_id, attendance.did_attend,
-                student.id, student.first_name, student.last_name
-        FROM lecture JOIN attendance ON lecture.id = attendance.lecture_id
-             JOIN class_student ON class_student.id = attendance.class_student_id
-             JOIN student ON student.id = class_student.student_id
-        '''
+        args = request.args
+        class_lecture_id = args.get('class_lecture_id', None)
+
+        q = db.session.query(Lecture, Attendance, Student).join(ClassLecture).join(Attendance).join(ClassStudent).join(Student)\
+            .filter(ClassStudent.class_id == class_id)
+
+        if class_lecture_id:
+            q = q.filter(Attendance.class_lecture_id == class_lecture_id)
+
         ret = []
         for lecture, attendance, student in q:
             ret.append(
@@ -454,65 +574,67 @@ class ClassView(BaseView):
 
             )
 
-        '''
-                {
-                    'lecture_id': lecture.id,
-                    'lecture_name': lecture.name,
-                    'lecture_dt': lecture.dt,
-                    'first_name': student.first_name,
-                    'last_name': student.last_name,
-                    'did_attend': attendance.did_attend
-                }
-        '''
-
         return jsonify({"meta": {"len": len(ret)}, "data": ret}), 200
+
+
+
 
     @route('/<int:class_id>/lecture/', methods=['POST'])
     @try_except
     def class_create_lecture(self, class_id):
         '''
-        Adds a lecture to a class
+        Adds an Independent Lecture to a Class
 
-        TODO: this needs to instantiate the Attendance for all students
+        This needs to instantiate the Attendance for all students
+
+        What should I be returning out of this?
+            Right now I'm returning ClassLecture
+            Before I was returning Lecture
+            Should I return (ClassLecture, Lecture) instead?
         '''
-        app.logger.debug("HAI IN CLASS/ID/LECTURE/")
+
         form = request.json
         keys = 'data'
         data = extract_form(form, keys)
 
-        # This will modify request.json when it arrives in lecture.post, hopefully
-        for lecture in data:
-            lecture['class_id'] = class_id
-        app.logger.debug("ROUTING TO LECTUREVIEW:POST")
+        try:
+            class_lectures = [ClassLecture(class_id=class_id,
+                                           lecture_id=lecture['lecture_id'])
+                                for lecture in data]
 
-        # Why do we use code=307? It directs to the GET if we don't.
-        # Why? Not a clue, read this: http://stackoverflow.com/a/15480983/1391717
+        except KeyError as ex:
+            try:
+                lectures = bulk_save(Lecture, data, ['name'])
+            except UserError as ex:
+                raise UserError("Expecting either (lecture_id) or (name)")
 
-        g.data = data
+            class_lectures = [ClassLecture(class_id=class_id,
+                                           lecture_id=lecture['lecture_id'])
+                                for lecture in lectures]
 
-        session['data'] = data
-
-        return redirect(url_for('LectureView:post'), code=307)
-
-        lectures = bulk_save(Lecture, data, ['class_id', 'name', 'description', 'dt'])
+        db.session.bulk_save_objects(class_lectures, return_defaults=True)
 
         # Initialize Attendance
-        q = db.session.query(ClassStudent).join(Class).filter(Class.id == class_id)
+        q = db.session.query(ClassStudent).filter_by(class_id=class_id)
         class_student_ids = [class_student.id for class_student in q]
         if class_student_ids:
             attendances = []
             for class_student_id in class_student_ids:
-                for lecture in lectures:
-                    attendances.append(Attendance(lecture_id=lecture.id,
+                for class_lecture in class_lectures:
+                    attendances.append(Attendance(class_lecture_id=class_lecture.id,
                                                   class_student_id=class_student_id))
 
-            db.session.bulk_save_objects(attendances, return_defaults=False)
+            db.sesion.bulk_save_objects(attendances, return_defaults=False)
+
+        class_lectures = [class_lecture.json for class_lecture in class_lectures]
 
         db.session.commit()
 
-        lectures = [lecture.json for lecture in lectures]
+        return jsonify({"meta": {"len": len(class_lectures)}, "data": class_lectures})
 
-        return jsonify({"meta": {"len": len(lectures)}, "data": lectures})
+    @route('/<int:class_id>/homework/', methods=['POST'])
+    def class_create_homework(self, class_id):
+        pass
 
     @route('/<int:class_id>/student/', methods=['POST'])
     @try_except
@@ -610,7 +732,7 @@ class StudentView(BaseView):
 
 class LectureView(BaseView):
     model = Lecture
-    post_keys = ['name', 'description', 'dt', 'class_id']
+    post_keys = ['name', 'description', 'dt']
 
     @try_except
     def post(self):
@@ -637,23 +759,19 @@ class LectureView(BaseView):
 
         lectures = bulk_save(Lecture, data, self.post_keys)
 
-        class_ids = ((lecture.class_id for lecture in lectures))
-
-        # Initialize Attendance
-        q = db.session.query(ClassStudent).join(Class).filter(Class.id.in_(class_ids))
-        class_student_ids = [class_student.id for class_student in q]
-        if class_student_ids:
-            attendances = []
-            for class_student_id in class_student_ids:
-                for lecture in lectures:
-                    attendances.append(Attendance(lecture_id=lecture.id,
-                                                  class_student_id=class_student_id))
-
-            db.session.bulk_save_objects(attendances, return_defaults=False)
-
-        db.session.commit()
+        '''
+        course_lecture_data = []
+        for lecture in lectures:
+            app.logger.debug("id is {}".format(lecture.id))
+            course_lecture_data.append({
+                'course_id': lecture.course_id,
+                'lecture_id': lecture.id
+            })
+        '''
 
         lectures = [lecture.json for lecture in lectures]
+
+        db.session.commit()
 
         return jsonify({"meta": {"len": len(lectures)}, "data": lectures})
 
