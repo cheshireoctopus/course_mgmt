@@ -67,6 +67,11 @@ def update_course(id, name):
 
     return hit_api(api, data, method=method)
 
+def get_course(id):
+    api = '/api/course/{}'.format(id)  # No trailing slashes on ID due to flask-classy constraint
+    method = 'GET'
+    return hit_api(api, method=method)
+
 def create_lecture(class_id, name, description, dt):
     # Utility function to create a single lecture
     api = '/api/class/{}/lecture/'.format(class_id)
@@ -100,6 +105,12 @@ def update_lecture(id, name, description, dt):
     }
 
     return hit_api(api, data, method=method)
+
+def get_lecture(id):
+    api = '/api/lecture/'
+    method = 'GET'
+
+    return hit_api(api, method=method)
 
 
 def create_class(course_id, start_dt, end_dt):
@@ -135,6 +146,11 @@ def update_class(id, start_dt, end_dt):
 
     return hit_api(api, data, method=method)
 
+def get_class(id):
+    api = '/api/class/{}'.format(id)
+    method = 'GET'
+    return hit_api(api, method=method)
+
 def create_homework_independent(name):
     # Creates an indepenent homework
     api = '/api/homework/'
@@ -162,6 +178,12 @@ def update_homework(id, name):
     }
 
     return hit_api(api, data, method=method)
+
+def get_homework(id):
+    api = '/api/homework/{}'.format(id)
+    method = 'GET'
+
+    return hit_api(api, method=method)
 
 def add_homework_independent_to_course(course_id, homework_id):
     api = '/api/course/{}/homework/'.format(course_id)
@@ -224,6 +246,12 @@ def update_student(id, first_name, last_name, github_username, email, photo_url)
 
     return hit_api(api, data, method=method)
 
+def get_student(id):
+    api = '/api/student/{}'.format(id)
+    method = 'GET'
+
+    return hit_api(api, method=method)
+
 def add_student_independent_to_class(class_id, student_id):
     api = '/api/class/{}/student/'.format(class_id)
     method = 'POST'
@@ -259,6 +287,10 @@ class TestAll(unittest.TestCase):
         # Drop and recreate the database
         self.assertEquals(200, drop_and_create_db().status_code)
 
+    def assert_data_equals(self, r, **kwargs):
+        self.assertEquals(r.status_code, 200)
+        self.assertEquals(r.json()['data'], kwargs)
+
     def test_all_create(self):
         '''
         This system test hits all of the create APIs happy path
@@ -271,10 +303,19 @@ class TestAll(unittest.TestCase):
 
         course_id = get_first_id_from_response(r)
 
+        # Get Course
+        r = get_course(id=course_id)
+        self.assert_data_equals(r, id=course_id, name='Matthew''s Course')
+        #self.assertEquals(r.json()['name'], 'Matthew''s Course')
+
         ## Update Course
 
         r = update_course(id=course_id, name='Chandler''s Course')
         self.assertEquals(r.status_code, 200)
+
+        # Get Course
+        r = get_course(id=course_id)
+        self.assert_data_equals(r, id=course_id, name='Chandler''s Course')
 
         ## Create Class
         r = create_class(course_id=course_id, start_dt='2016-01-01 00:00:00', end_dt='2016-05-30 00:00:00')
@@ -282,9 +323,18 @@ class TestAll(unittest.TestCase):
 
         class_id = get_first_id_from_response(r)
 
+        # Get Class
+        r = get_class(class_id)
+        self.assert_data_equals(r, id=class_id, start_dt='2016-01-01 00:00:00', end_dt='2016-05-30 00:00:00',
+                                course_id=course_id)
+
         ## Update Class
         r = update_class(id=class_id, start_dt='2015-01-01 00:00:00', end_dt='2015-05-30 00:00:00')
         self.assertEquals(r.status_code, 200)
+
+        # Get Class
+        r = get_class(class_id)
+        self.assert_data_equals(r, id=class_id, start_dt='2015-01-01 00:00:00', end_dt='2015-05-30 00:00:00', course_id=course_id)
 
         ## Create Lecture
         r = create_lecture(class_id=class_id, name='Lecture 1', description='The first lecturel', dt='2016-01-01 00:00:00')
@@ -292,19 +342,36 @@ class TestAll(unittest.TestCase):
 
         lecture_id = get_first_id_from_response(r)
 
+        # Get Lecture
+        r = get_lecture(lecture_id)
+        self.assert_data_equals(r, id=lecture_id, name='Lecture 1', description='The first lecturel', dt='2016-01-01 00:00:00')
+
+        # Update lecture
         r = update_lecture(id=lecture_id, name='Lecture 2', description='The second lecture', dt='2015-01-01 00:00:00')
         self.assertEquals(r.status_code, 200)
 
+        # Get Lecture
+        r = get_lecture(id)
+        self.assert_data_equals(r, id=lecture_id, name='Lecture 2', description='The second lecture', dt='2015-01-01 00:00:00')
+
         ## Create Independent Homework and add to Course
         # Create Independent Homework
-        r = create_homework_independent('Homework 1')
+        r = create_homework_independent(name='Homework 1')
         self.assertEquals(r.status_code, 200)
 
         homework_independent_id = get_first_id_from_response(r)
 
+        # Get Homework
+        r = get_homework(homework_independent_id)
+        self.assert_data_equals(r, id=homework_independent_id, name='Homework 1')
+
         # Update homework
         r = update_homework(id=homework_independent_id, name='Homework 2')
         self.assertEquals(r.status_code, 200)
+
+        # Get Homework
+        r = get_homework(homework_independent_id)
+        self.assert_data_equals(r, id=homework_independent_id, name='Homework 2')
 
         # Add independent homework to Course
         r = add_homework_independent_to_course(course_id=course_id, homework_id=homework_independent_id)
@@ -326,10 +393,22 @@ class TestAll(unittest.TestCase):
 
         student_independent_id = get_first_id_from_response(r)
 
+        # Get Student
+        r = get_student(student_independent_id)
+        self.assert_data_equals(r, id=student_independent_id, first_name='Matthew', last_name='Moisen',
+                                github_username='mkmoisen', email='mkmoisen@gmail.com',
+                                photo_url='http://matthewmoisen.com/pic.jpg')
+
         # Update Student
         r = update_student(id=student_independent_id, first_name='Chandler', last_name='Moisen', github_username='ches',
                            email='hello@chandlermoisen.com', photo_url='http://chandlermoisen.com/pic/jpg')
         self.assertEquals(r.status_code, 200)
+
+        # Get Student
+        r = get_student(student_independent_id)
+        self.assert_data_equals(r, id=student_independent_id, first_name='Chandler', last_name='Moisen',
+                                github_username='ches', email='hello@chandlermoisen.com',
+                                photo_url='http://chandlermoisen.com/pic/jpg')
 
         # Add Independent Student to Class
         r = add_student_independent_to_class(class_id, student_independent_id)
