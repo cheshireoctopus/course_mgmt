@@ -171,18 +171,11 @@ def bulk_update(model, data):
         return UserError(ex.message)
 
 
-def lol(hai):
-    '''
-
-    :param hai: helo
-    :return: obama
-    '''
-    pass
 
 
 def add_many_to_many(data, strong_id_key, strong_id_value, many_model, weak_model, weak_id_key, weak_keys):
     try:
-        many_many = [many_model(**{strong_id_key: strong_id_value, weak_id_key: obj[weak_id_key]} for obj in data)]
+        many_many = [many_model(**{strong_id_key: strong_id_value, weak_id_key: obj[weak_id_key]}) for obj in data]
     except KeyError as ex:
         try:
             weaks = bulk_save(weak_model, data, weak_keys)
@@ -191,7 +184,7 @@ def add_many_to_many(data, strong_id_key, strong_id_value, many_model, weak_mode
 
         many_many = [many_model(**{strong_id_key: strong_id_value, weak_id_key: weak.id}) for weak in weaks]
 
-    db.session.bulk_save_objects(many_model, return_defaults=True)
+    db.session.bulk_save_objects(many_many, return_defaults=True)
 
     return many_many
 
@@ -389,7 +382,7 @@ class CourseView(BaseView):
 
         course_lectures = add_many_to_many(data=data, strong_id_key='course_id', strong_id_value=course_id,
                                            many_model=CourseLecture, weak_model=Lecture, weak_id_key='lecture_id',
-                                           weak_keys=['name'])
+                                           weak_keys=['name', 'description', 'dt'])
         '''
         try:
             course_lectures = [CourseLecture(course_id=course_id,
@@ -740,7 +733,7 @@ class StudentView(BaseView):
 
 class LectureView(BaseView):
     model = Lecture
-    post_keys = ['name', 'description', 'dt', 'class_id']
+    post_keys = ['name', 'description', 'dt']
 
     @try_except
     def post(self):
@@ -767,23 +760,19 @@ class LectureView(BaseView):
 
         lectures = bulk_save(Lecture, data, self.post_keys)
 
-        class_ids = ((lecture.class_id for lecture in lectures))
-
-        # Initialize Attendance
-        q = db.session.query(ClassStudent).join(Class).filter(Class.id.in_(class_ids))
-        class_student_ids = [class_student.id for class_student in q]
-        if class_student_ids:
-            attendances = []
-            for class_student_id in class_student_ids:
-                for lecture in lectures:
-                    attendances.append(Attendance(lecture_id=lecture.id,
-                                                  class_student_id=class_student_id))
-
-            db.session.bulk_save_objects(attendances, return_defaults=False)
-
-        db.session.commit()
+        '''
+        course_lecture_data = []
+        for lecture in lectures:
+            app.logger.debug("id is {}".format(lecture.id))
+            course_lecture_data.append({
+                'course_id': lecture.course_id,
+                'lecture_id': lecture.id
+            })
+        '''
 
         lectures = [lecture.json for lecture in lectures]
+
+        db.session.commit()
 
         return jsonify({"meta": {"len": len(lectures)}, "data": lectures})
 
