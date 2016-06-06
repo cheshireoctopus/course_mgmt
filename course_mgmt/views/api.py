@@ -14,7 +14,15 @@ from werkzeug.exceptions import BadRequest
 from functools import wraps
 
 
+'''
+In shell for testing:
 
+from course_mgmt import app, db
+from course_mgmt.models import *
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from sqlalchemy.orm.exc import NoResultFound
+
+'''
 def extract_form(form, keys=None):
     '''
     Helper method to extract specified keys out of a POSTed form
@@ -134,8 +142,9 @@ def bulk_save(model, data, keys):
                     kwargs[key] = datetime.strptime(obj[key], date_format)
                 else:
                     kwargs[key] = obj[key]
-
-            objs.append(model(**kwargs))
+            m = model(**kwargs)
+            m.obj = obj
+            objs.append(m)
 
     except KeyError as ex:
         raise UserError("Expecting {}, got {}".format(keys, ex.message))
@@ -145,6 +154,8 @@ def bulk_save(model, data, keys):
     try:
         db.session.bulk_save_objects(objs, return_defaults=True)
     except IntegrityError as ex:
+        app.logger.exception("data was {}".format(data))
+        app.logger.exception("objs were {}".format(objs))
         raise UserError(ex.message)
 
     return objs
@@ -736,44 +747,114 @@ class LectureView(BaseView):
 
     @try_except
     def post(self):
-        app.logger.debug("IN SIDE LECTURE VIEW POST")
-        app.logger.debug("request.json is {}".format(request.json))
-        app.logger.debug("request.form is {}".format(request.json))
+        form = request.json
+        keys = 'data'
+        data = extract_form(form, keys)
 
-        #app.logger.debug(url_for('StudentView:wtf', class_id=1))  # Class.create_class_lecture(class_id)
-        #return redirect(url_for('StudentView:wtf', class_id=1))
+        # Step 1, loop over data and distringuish between
+        #   New Foos to Insert
+        #       No "id" key
+        #   New Foos to Insert and Associate with Bars
+        #       No "Id" key, but "bar_id" key present
+        #   Old Foos to Associate with Bars
+        #       "id" key AND "bar_id" key present
 
-        #app.logger.debug(url_for('ClassView:class_create_lecture', class_id=1))  # Class.create_class_lecture(class_id)
-        #return redirect(url_for('ClassView:class_create_lecture', class_id=1))
 
-        if 'data' in session:
-            # If request is from /class/<class_id>/lecture/ it redirects here
-            # pull out data from session which is modified with the lecture_id
-            data = session.pop('data')
-        else:
-            form = request.json
-            keys = 'data'
-            data = extract_form(form, keys)
+        ##############################################
+        # Second attempt
 
-        #return redirect(url_for('LectureView:post'))
 
+
+
+        ##############################################
+        # First attempt
+        # Identify New Foos to insert
+        lectures = []
+        course_lectures = []
+        class_lectures = []
+
+        new_lectures = []
+        for obj in data:
+            if 'id' not in obj:
+                new_lectures.append(obj)
+
+        # This returns lectures with an "obj" attribute that may or may not contain
+        # any course_id or class_id
+        lectures = bulk_save(Lecture, new_lectures, self.post_keys)
+
+        # Prepare course_lecture_objs
+        course_lecture_objs = [{'course_id': lecture.obj['course_id'], 'lecture_id': lecture.id}
+                               for lecture in lectures if 'course_id' in lecture.obj]
+
+        # Add old lectures from data that are not in lectures
+        course_lecture_objs.extend([{'course_id': lecture['course_id'], 'lecture_id': lecture['id']}
+                                for lecture in data if 'id' in lecture])
+
+        if course_lecture_objs:
+            course_lectures = bulk_save(CourseLecture, course_lecture_objs, ['course_id', 'lecture_id'])
+
+        # Prepare class_lecture_objs
+        class_lecture_objs = [{'class_id': lecture.obj['class_id'], 'lecture_id': lecture.id}
+                              for lecture in lectures if 'class_id' in lecture.obj]
+
+        # Add old lectures from data that are not in lectures
+        class_lecture_objs.extend([{'class_id': lecture['class_id'], 'lecture_id': lecture['id']}
+                              for lecture in data if 'id' in lecture])
+
+        if class_lecture_objs:
+            class_lectures = bulk_save(ClassLecture, class_lecture_objs, ['class_id', 'lecture_id'])
+
+        ret = lectures + course_lectures + class_lectures
+
+        ret = [r.json for r in ret]
+
+        db.session.commit()
+
+        return jsonify({"meta": {"len": len(lectures)}, "data": ret})
+
+        ### WTF do I return???
+        # If I just return lectures, that is only the newly created lectures, and doesn't include the
+        # class_lecture_id or course_lecture_id
         lectures = bulk_save(Lecture, data, self.post_keys)
 
-        '''
-        course_lecture_data = []
-        for lecture in lectures:
-            app.logger.debug("id is {}".format(lecture.id))
-            course_lecture_data.append({
-                'course_id': lecture.course_id,
-                'lecture_id': lecture.id
-            })
-        '''
+
+
+
+        ########################
+        # OLD
+
+        # Add Lectures to Courses if course_id specified
+        course_lecture_objs = [{'course_id': lecture.obj['course_id'], 'lecture_id': lecture.id}
+                               for lecture in lectures if 'course_id' in lecture.obj]
+        if course_lecture_objs:
+            bulk_save(CourseLecture, course_lecture_objs, ['course_id', 'lecture_id'])
+
+        # Add Lectures to Classes if class_id specified
+        class_lecture_objs = [{'class_id': lecture.obj['class_id'], 'lecture_id': lecture.id}
+                              for lecture in lectures if 'class_id' in lecture.obj]
+        if class_lecture_objs:
+            bulk_save(ClassLecture, class_lecture_objs, ['class_id', 'lecture_id'])
 
         lectures = [lecture.json for lecture in lectures]
 
         db.session.commit()
 
         return jsonify({"meta": {"len": len(lectures)}, "data": lectures})
+
+    @try_except
+    def delete(self):
+        data = request.json['data']
+
+        lecture_ids = []
+        course_lectures = []
+        class_lectures = []
+
+        for lecture in data:
+            if 'course_id' not in lecture and 'class_id' not in lecture:
+                lecture_ids.append(lecture['id'])
+            else:
+                if 'course_id' in lecture:
+                    pass
 
     @route('/<int:lecture_id>/attendance/', methods=['GET'])
     @try_except
@@ -805,6 +886,132 @@ class LectureView(BaseView):
 class HomeworkView(BaseView):
     model = Homework
     post_keys = ['name']
+
+
+    def post(self):
+        '''
+        /api/homework handles multiple operations, which can be mixed and matched in the same request
+            1. Create a new Homework
+                No "id" is present; no "course_id" or "class_id" are present
+            2. Create a new Homework and associate it to a previously created Course
+                No "id" is present; a "course_id" is present
+            3. Create a new Homework and associate it to a previously created Class
+                No "id" is present; a "class_id" is present
+            4. Associate a previously created Homework with a previously created Course
+                An "id" is present; a "course_id" is present
+            5. Associate a previously created Homework with a previously created Class
+                An "id" is present; a "class_id" is present
+
+        For example, a request containing each of those 5 operations, in order, would look like this:
+            {
+                "data": [
+                    {
+                       "name": "Python Metaclasses"
+                    },
+                    {
+                       "name": "Python variables", "course_id": 1
+                    },
+                    {
+                       "name": "Python loops", "class_id": 10
+                    },
+                    {
+                       "id": 1, "course_id": 1
+                    },
+                    {
+                       "id": 1, "class_id": 10
+                    },
+                ]
+            }
+
+        This API will perform all the operations and return the following response:
+            {
+                "data": [
+                    {
+                       "id": 1, "name": "Python Metaclasses"
+                    },
+                    {
+                       "id": 2, "name": "Python variables", "course_homework_id": 500, "course_id": 1
+                    },
+                    {
+                       "name": "Python loops", "class_homework_id": 1001, "class_id": 10
+                    },
+                    {
+                       "id": 1, "course_homework_id": 501, "course_id": 1, "name": ""
+                    },
+                    {
+                       "id": 1, "class_homework_id": 1002, ""class_id": 10, name": ""
+                    },
+                ]
+            }
+
+        Note how the response is returned in the exact same order as the Request
+
+        Note how "id"s have been added to the newly created Homeworks
+
+        Note how "course_homework_id" and "class_homework_id" are added to those that were associated accordingly
+
+        Note how "name" is empty for cases 4 and 5.
+        '''
+
+
+        #app.logger.debug(" IN HOMEWORK YO")
+        data = request.json['data']
+
+        # To ensure the order of the response is identical as 
+        ordered_homeworks = []
+        homeworks = []
+        for obj in data:
+            homework = Homework()  # Homework(name=obj['name'])
+            if 'course_id' in obj:
+                homework.course_id = obj['course_id']
+            if 'class_id' in obj:
+                homework.class_id = obj['class_id']
+            if not 'id' in obj:
+                homework.name = obj['name']
+                homeworks.append(homework)
+                ordered_homeworks.append(homework)
+            else:
+                homework.id = obj['id']
+                ordered_homeworks.append(homework)
+
+        db.session.bulk_save_objects(homeworks, return_defaults=True)
+
+        course_homeworks = []
+        class_homeworks = []
+
+        for homework in ordered_homeworks: #  homeworks:
+            if hasattr(homework, 'course_id'):
+                course_homework = CourseHomework(homework_id=homework.id, course_id=homework.course_id)
+                homework.course_homework = course_homework
+                course_homeworks.append(course_homework)
+            if hasattr(homework, 'class_id'):
+                class_homework = ClassHomework(homework_id=homework.id, class_id=homework.class_id)
+                homework.class_homework = class_homework
+                class_homeworks.append(class_homework)
+
+        if course_homeworks:
+            db.session.bulk_save_objects(course_homeworks, return_defaults=True)
+
+        if class_homeworks:
+            db.session.bulk_save_objects(class_homeworks, return_defaults=True)
+
+            # TODO Instantiate all the Assignments
+
+        rets = []
+        for homework in ordered_homeworks:
+            lol = homework.json
+            if hasattr(homework, 'course_homework'):
+                lol['course_homework_id'] = homework.course_homework.id
+                lol['course_id'] = homework.course_homework.course_id
+            if hasattr(homework, 'class_homework'):
+                lol['class_homework_id'] = homework.class_homework.id
+                lol['class_id'] = homework.class_homework.class_id
+
+            rets.append(lol)
+
+        db.session.commit()
+
+        return jsonify({"meta": {"len": len(homeworks)}, "data": rets}), 200
 
 '''
 class AttendanceView(BaseView):
