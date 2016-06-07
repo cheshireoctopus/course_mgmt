@@ -7,6 +7,7 @@ let initialState = Immutable.Map({
 	isLoading: false,
 	isShowingClass: false,
 	studentsByClass: [],
+	isShowingForm: false,
 })
 
 module.exports = (state = initialState, action) => {
