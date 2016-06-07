@@ -12,7 +12,7 @@ module.exports = {
 			$.ajax({
 				url: API.COURSE,
 				type: 'POST',
-				contentType: 'application/JSON',
+				contentType: 'application/json',
 				data: JSON.stringify(data),
 			}).done((res) => {
 				dispatch(toggleForm(false))
@@ -38,7 +38,8 @@ module.exports = {
 			dispatch(toggleLoading(true))
 
 			$.when(
-				dispatch(fetchCourse(courseId))
+				dispatch(fetchCourse(courseId)),
+				dispatch(fetchCourseClasses(courseId))
 			).then(() => {
 				dispatch(toggleLoading(false))
 			})
@@ -80,27 +81,37 @@ function toggleLoading (value) {
 	}
 }
 
-function fetchCourse (classId) {
+function fetchCourse (courseId) {
 	return dispatch => {
-		$.get(API.COURSE + classId)
-			.then(res => {
-				dispatch(receiveCourse(res.data))
-			})
+		$.get(API.COURSE + courseId)
+			.then(res => dispatch(receiveCourse(res.data)))
+	}
+}
+
+function fetchCourseClasses (courseId) {
+	return dispatch => {
+		$.get(API.COURSE + courseId + '/class')
+			.then(res => dispatch(receiveCourseClasses(res.data)))
 	}
 }
 
 function fetchCourses () {
 	return dispatch =>
 		$.get(API.COURSE)
-			.then(res => {
-				dispatch(receiveCourses(res.data))
-			})
+			.then(res => dispatch(receiveCourses(res.data)))
 }
 
-function receiveCourse (courseObj) {
+function receiveCourse (course) {
 	return {
 		type: actions.RECEIVE_COURSE,
-		payload: { courseObj },
+		payload: { course },
+	}
+}
+
+function receiveCourseClasses (classes) {
+	return {
+		type: actions.RECEIVE_COURSE_CLASSES,
+		payload: { classes },
 	}
 }
 
