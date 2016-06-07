@@ -17,7 +17,7 @@ module.exports = React.createClass({
 			<div className="row">
 				<div className="col-md-12">
 					<ul className="list-group">
-						{students}
+						{students && students.length ? students : <h3>You haven't added any students yet</h3>}
 					</ul>
 				</div>
 			</div>

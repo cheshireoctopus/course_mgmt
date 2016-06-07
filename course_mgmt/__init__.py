@@ -32,7 +32,7 @@ app.secret_key = 'abc123'
 # Routes
 @app.route('/')
 def index():
-    return render_template('index.jade', data={'app': 'classes'})
+    return render_template('index.jade', data={'app': 'courses'})
 
 @app.route('/class/')
 def classes():
