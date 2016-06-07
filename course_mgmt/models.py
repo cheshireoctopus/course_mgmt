@@ -46,6 +46,21 @@ from course_mgmt.models import *
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 
+
+class SqliteSequence(db.Model):
+    __tablename__ = 'sqlite_sequence'
+    name = db.Column(db.String, primary_key=True)
+    seq = db.Column(db.Integer)
+
+course = db.session.query(SqliteSequence).filter_by(name='course').one()
+
+class Hello(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String)
+    __table_args__ = (db.UniqueConstraint('name'), {'sqlite_autoincrement': True})
+
+
+db.create_all()
 '''
 
 class BaseModel(db.Model):
@@ -62,7 +77,7 @@ class Course(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String, unique=True, nullable=False)
     classes = db.relationship('Class', backref=db.backref('course'))
-
+    __table_args__ = {'sqlite_autoincrement': True}
     plural = 'course'
 
 class Class(BaseModel):
@@ -70,7 +85,7 @@ class Class(BaseModel):
     start_dt = db.Column(db.DateTime, nullable=False)
     end_dt = db.Column(db.DateTime, nullable=False)
     course_id = db.Column(db.Integer, db.ForeignKey('course.id', ondelete='CASCADE'), nullable=False)
-    __table_args__ = (db.UniqueConstraint('course_id', 'start_dt', 'end_dt'),)
+    __table_args__ = (db.UniqueConstraint('course_id', 'start_dt', 'end_dt'), {'sqlite_autoincrement': True})
 
     plural = 'class'
 
@@ -83,6 +98,8 @@ class Student(BaseModel):
     email = db.Column(db.String, nullable=False)
     photo_url = db.Column(db.String)
 
+    __table_args__ = {'sqlite_autoincrement': True}
+
     plural = 'student'
 
 
@@ -93,7 +110,8 @@ class Lecture(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String)
     description = db.Column(db.String)
-    dt = db.Column(db.DateTime)
+
+    __table__args__ = {'sqlite_autoincrement': True}
 
     plural = 'lecture'
 
@@ -101,7 +119,7 @@ class ClassStudent(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
     class_id = db.Column(db.Integer, db.ForeignKey('class.id', ondelete='CASCADE'), nullable=False)
     student_id = db.Column(db.Integer, db.ForeignKey('student.id', ondelete='CASCADE'), nullable=False)
-    __table_args__ = (db.UniqueConstraint('class_id', 'student_id'),)
+    __table_args__ = (db.UniqueConstraint('class_id', 'student_id'), {'sqlite_autoincrement': True})
 
 
 
@@ -113,6 +131,8 @@ class Homework(BaseModel):
     # This is the case when a Class Homework is modified from the usual course homework
     parent_id = db.Column(db.Integer, db.ForeignKey('homework.id'), nullable=True)
 
+    __table_args__ = {'sqlite_autoincrement': True}
+
 
 class CourseHomework(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
@@ -120,14 +140,14 @@ class CourseHomework(BaseModel):
     homework_id = db.Column(db.Integer, db.ForeignKey('homework.id', ondelete='CASCADE'), nullable=False)
     course_lecture_id = db.Column(db.Integer, db.ForeignKey('course_lecture.id'), nullable=True)
 
-    __table_args__ = (db.UniqueConstraint('course_id', 'homework_id'),)
+    __table_args__ = (db.UniqueConstraint('course_id', 'homework_id'), {'sqlite_autoincrement': True})
 
 class ClassHomework(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
     class_id = db.Column(db.Integer, db.ForeignKey('class.id'), nullable=False)
     homework_id = db.Column(db.Integer, db.ForeignKey('homework.id'), nullable=False)
     class_lecture_id = db.Column(db.Integer, db.ForeignKey('class_lecture.id'), nullable=True)
-    __table_args__ = (db.UniqueConstraint('class_id', 'homework_id'),)
+    __table_args__ = (db.UniqueConstraint('class_id', 'homework_id'), {'sqlite_autoincrement': True})
 
 
 class CourseLecture(BaseModel):
@@ -135,14 +155,15 @@ class CourseLecture(BaseModel):
     course_id = db.Column(db.Integer, db.ForeignKey('course.id'), nullable=False)
     lecture_id = db.Column(db.Integer, db.ForeignKey('lecture.id'), nullable=False)
 
-    __table_args__ = (db.UniqueConstraint('course_id', 'lecture_id'),)
+    __table_args__ = (db.UniqueConstraint('course_id', 'lecture_id'), {'sqlite_autoincrement': True})
 
 class ClassLecture(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
     class_id = db.Column(db.Integer, db.ForeignKey('class.id'), nullable=False)
     lecture_id = db.Column(db.Integer, db.ForeignKey('lecture.id'), nullable=False)
+    dt = db.Column(db.DateTime)
 
-    __table_args__ = (db.UniqueConstraint('class_id', 'lecture_id'),)
+    __table_args__ = (db.UniqueConstraint('class_id', 'lecture_id'), {'sqlite_autoincrement': True})
 
 
 class Assignment(BaseModel):
@@ -151,7 +172,7 @@ class Assignment(BaseModel):
     class_homework_id = db.Column(db.Integer, db.ForeignKey('class_homework.id', ondelete='CASCADE'), nullable=False)
     is_completed = db.Column(db.Integer, default=0)
 
-    __table_args__ = (db.UniqueConstraint('class_student_id', 'class_homework_id'),)
+    __table_args__ = (db.UniqueConstraint('class_student_id', 'class_homework_id'), {'sqlite_autoincrement': True})
 
 class Attendance(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
@@ -159,8 +180,9 @@ class Attendance(BaseModel):
     class_student_id = db.Column(db.Integer, db.ForeignKey('class_student.id', ondelete='CASCADE'), nullable=False)
     did_attend = db.Column(db.Boolean, nullable=False, default=False)
 
-    __table_args__ = (db.UniqueConstraint('class_lecture_id', 'class_student_id'),
+    __table_args__ = (db.UniqueConstraint('class_lecture_id', 'class_student_id'), {'sqlite_autoincrement': True},
                       # TODO ? Index it both ways (e.g., include student_id, lecture_id) as per the access patterns
                       )
 
-all_models = [Student, Lecture, Homework]
+all_models = [ClassStudent, Attendance, Assignment, ClassHomework, ClassLecture,
+              CourseHomework, CourseLecture, Class, Student, Homework, Lecture, Course]

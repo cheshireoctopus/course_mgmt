@@ -230,6 +230,15 @@ def drop_db():
     return jsonify({}), 200
 
 
+def extract_data():
+    if not request.json:
+        raise UserError("Set Content-Type: application/json")
+    try:
+        data = request.json['data']
+    except KeyError as ex:
+        raise UserError("Data attribute is required in request")
+
+    return data
 
 class BaseView(FlaskView):
     trailing_slash = True
@@ -261,7 +270,7 @@ class BaseView(FlaskView):
         if self.model is None or not self.post_keys:
             raise NotImplementedError("Define model and post_keys")
 
-        data = request.json['data']
+        data = extract_data()
 
         objs = bulk_save(self.model, data, self.post_keys)
 
@@ -304,7 +313,7 @@ class BaseView(FlaskView):
         # TODO need to handle date conversion dynamically
         # Should probably just read sqlalchemy documentation for once and learn to dynamically inspect columns easily
 
-        data = request.json['data']
+        data = extract_data()
         if not isinstance(data, list):
             raise UserError({"data attribute should be dict/json"})
 
@@ -476,7 +485,7 @@ class ClassView(BaseView):
             app.logger.debug("data is in session {}".format(session['data']))
             data = session.pop('data')
         else:
-            data = request.json['data']
+            data = extract_data()
 
         if not isinstance(data, list):
             raise UserError({"data attribute should be dict/json"})
@@ -637,9 +646,7 @@ class ClassView(BaseView):
             Should I return (ClassLecture, Lecture) instead?
         '''
 
-        form = request.json
-        keys = 'data'
-        data = extract_form(form, keys)
+        data = extract_data()
 
         try:
             class_lectures = [ClassLecture(class_id=class_id,
@@ -695,9 +702,7 @@ class ClassView(BaseView):
 
         :return: ClassStudent
         '''
-        form = request.json
-        keys = 'data'
-        data = extract_form(form, keys)
+        data = extract_data()
 
         try:
             class_students = [ClassStudent(class_id=class_id,
@@ -754,7 +759,7 @@ class StudentView(BaseView):
 
     @try_except
     def post(self):
-        data = request.json['data']
+        data = extract_data()
 
         # This ensures the order of the response is identical to the request
         ordered_students = []
@@ -869,7 +874,7 @@ class StudentView(BaseView):
 
 class LectureView(BaseView):
     model = Lecture
-    post_keys = ['name', 'description', 'dt']
+    post_keys = ['name', 'description']
 
     @try_except
     def put(self):
@@ -877,9 +882,7 @@ class LectureView(BaseView):
 
     @try_except
     def post(self):
-        form = request.json
-        keys = 'data'
-        data = extract_form(form, keys)
+        data = extract_data()
 
         # This ensures order of the response is indetical to the request
         ordered_lectures = []
@@ -899,7 +902,15 @@ class LectureView(BaseView):
 
             if not 'id' in obj:
                 # This is a new Lecture to create
-                json_to_model(model=Lecture, obj=obj, keys=self.post_keys, model_inst=lecture)
+                keys = self.post_keys[:]
+                # Class Lectures require a dt, whereas Course lectures do not.
+                # ?? Do I need to enforce this?
+                if 'class_id' in obj:
+                    if 'dt' not in obj:
+                        raise UserError("Class Lectures must have a dt attribute")
+                    keys.append('dt')
+
+                json_to_model(model=Lecture, obj=obj, keys=keys, model_inst=lecture)
                 #lecture.name = obj['name']
                 #lecture.description = obj['description']
                 #lecture.dt = datetime.strptime(date_format, obj['dt'])
@@ -962,6 +973,7 @@ class LectureView(BaseView):
         rets = []
         for lecture in ordered_lectures:
             ret = lecture.json
+
             if hasattr(lecture, 'course_lecture'):
                 ret['course_lecture_id'] = lecture.course_lecture.id
                 ret['course_id'] = lecture.course_lecture.course_id
@@ -974,12 +986,12 @@ class LectureView(BaseView):
 
         db.session.commit()
 
-        return jsonify({"meta": {"len": len(rets)}, "data": data})
+        return jsonify({"meta": {"len": len(rets)}, "data": rets})
 
 
     @try_except
     def delete(self):
-        data = request.json['data']
+        data = extract_data()
 
         lecture_ids = []
         course_lectures = []
@@ -1050,7 +1062,7 @@ class HomeworkView(BaseView):
 
         '''
 
-        data = request.json['data']
+        data = extract_data()
 
         admin_homework_objs = []
         teacher_homework_objs = {}
@@ -1070,7 +1082,7 @@ class HomeworkView(BaseView):
         teacher_class_homework_ids = [obj['class_homework_id'] for obj in teacher_homework_objs.keys()]
 
         # Query all the Homeworks on these class homework ids
-        homeworks = db.session.query(Homework, ClassHomework).join(ClassHomework).filter(ClassHomework.id_in(teacher_class_homework_ids))
+        homeworks = db.session.query(Homework, ClassHomework).join(ClassHomework).filter(ClassHomework.id.in_(teacher_class_homework_ids))
 
         # These two arrays will have corresponding indexes for the Homework -- ClassHomework joined on OLD homework.id
         teacher_homeworks = []
@@ -1180,7 +1192,7 @@ class HomeworkView(BaseView):
 
 
         #app.logger.debug(" IN HOMEWORK YO")
-        data = request.json['data']
+        data = extract_data()
 
         # To ensure the order of the response is identical to the request, use this array
         ordered_homeworks = []
