@@ -331,6 +331,67 @@ class CourseView(BaseView):
     model = Course
     post_keys = ['name']
 
+    @try_except
+    def get(self, id=None):
+        app.logger.debug(request.args)
+
+        if id is None:
+            courses = [course.json for course in db.session.querY(self.model).all()]
+            return jsonify({"meta": {"len": len(courses)}, "data": courses}), 200
+
+        get_homework = False
+        get_lecture = False
+        get_class = False
+
+        data = request.args.get('data', None)
+        if data:
+            args = data.lower().split(',')
+            for arg in args:
+                if arg == 'homework':
+                    get_homework = True
+                if arg == 'lecture':
+                    get_lecture = True
+                if arg == 'class':
+                    get_class = True
+
+
+        try:
+            course = db.session.query(Course).filter_by(id=id).one()
+        except NoResultFound:
+            raise UserError("No courses with id={}".format(id))
+
+        ret = course.json
+
+        if get_class:
+            ret['classes'] = []
+            q = db.session.query(Class).filter(Class.course_id == id)
+            for clazz in q:
+                ret['classes'].append(clazz.json)
+                print (course.json, clazz.json,)
+
+        if get_homework:
+            ret['homeworks'] = []
+            q = db.session.query(Homework, CourseHomework).join(CourseHomework).filter(CourseHomework.course_id == id)
+            for homework, course_homework in q:
+                obj = homework.json
+
+                obj['course_homework_id'] = course_homework.id
+                ret['homeworks'].append(obj)
+                print (homework.json, course_homework.json)
+
+        if get_lecture:
+            ret['lectures'] = []
+            q = db.session.query(Lecture, CourseLecture).join(CourseLecture).filter(CourseLecture.course_id == id)
+            for lecture, course_lecture in q:
+                obj = lecture.json
+
+                obj['course_lecture_id'] = course_lecture.id
+                ret['lectures'].append(obj)
+                print (lecture.json, course_lecture.json)
+
+
+        return jsonify({"meta": {}, "data": ret})
+
     @route('/<int:course_id>/class/', methods=['GET'])
     @try_except
     def get_classes(self, course_id):
