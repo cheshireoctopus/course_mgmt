@@ -64,6 +64,43 @@ def extract_form(form, keys=None):
     return tuple(ret)
 
 
+def parse_data_from_query_args(keys):
+    '''
+    Utility function to extract query args and return boolean values
+    Use like this:
+
+        get_homework, get_lecture, get_class = parse_data_from_query_args(['homework','lecture','class'])
+
+        Request should be:
+        /api/course/1?data=homework,lecture,class
+
+    :param keys: list of values to parse the data query param with
+    :return: a tuple of booleans in the same order as :keys
+    '''
+    data = request.args.get('data', None)
+    ret = {key: False for key in keys}
+    if data:
+        args = data.lower().split(',')
+        for arg in args:
+            if arg in keys:
+                ret[arg] = True
+
+    return tuple(ret[key] for key in keys)
+
+def parse_id_from_query_args(keys):
+    ret = {key: False for key in keys}
+
+    for k, v in request.args.iteritems():
+        if k in keys:
+            try:
+                val = int(v)
+            except ValueError:
+                raise UserError("id must be int, not {}".format(v))
+            ret[k] = val
+
+    return tuple(ret[key] for key in keys)
+
+
 def try_except(func):
     '''
     Boiler plate code to reduce exception catching in route calls.
@@ -336,25 +373,11 @@ class CourseView(BaseView):
         app.logger.debug(request.args)
 
         if id is None:
-            courses = [course.json for course in db.session.querY(self.model).all()]
+            courses = [course.json for course in db.session.query(self.model).all()]
             return jsonify({"meta": {"len": len(courses)}, "data": courses}), 200
 
-        get_homework = False
-        get_lecture = False
-        get_class = False
-
-        data = request.args.get('data', None)
-        if data:
-            args = data.lower().split(',')
-            for arg in args:
-                if arg == 'homework':
-                    get_homework = True
-                if arg == 'lecture':
-                    get_lecture = True
-                if arg == 'class':
-                    get_class = True
-
-
+        get_homework, get_lecture, get_class = parse_data_from_query_args(['homework', 'lecture', 'class'])
+        app.logger.debug("{} {} {}".format(get_homework, get_lecture, get_class))
         try:
             course = db.session.query(Course).filter_by(id=id).one()
         except NoResultFound:
@@ -532,6 +555,61 @@ class CourseView(BaseView):
 class ClassView(BaseView):
     model = Class
     post_keys = ['start_dt', 'end_dt', 'course_id']
+
+    @try_except
+    def index(self):
+        course_id, = parse_id_from_query_args(['course_id'])
+
+        q = db.session.query(Class)
+        if course_id:
+            q = q.filter_by(course_id=course_id)
+
+        classes = [clazz.json for clazz in q]
+
+        return jsonify({"meta": {"len": len(classes)}, "data": classes}), 200
+
+    @try_except
+    def get(self, id=None):
+
+        get_student, get_homework, get_lecture, get_course = parse_data_from_query_args(['student', 'homework', 'lecture', 'course'])
+
+        try:
+            clazz = db.session.query(Class).filter_by(id=id).one()
+        except NoResultFound:
+            raise UserError("No classes with id={}".format(id))
+
+        ret = clazz.json
+
+        if get_student:
+            ret['students'] = []
+            q = db.session.query(Student, ClassStudent).join(ClassStudent).filter(ClassStudent.class_id == id)
+            for student, class_student in q:
+                obj = student.json
+                obj['class_student_id'] = class_student.id
+                ret['students'].append(obj)
+
+        if get_homework:
+            ret['homeworks'] = []
+            q = db.session.query(Homework, ClassHomework).join(ClassHomework).filter(ClassHomework.class_id == id)
+            for homework, class_homework in q:
+                obj = homework.json
+                obj['class_homework_id'] = class_homework.id
+                ret['homeworks'].append(obj)
+
+        if get_lecture:
+            ret['lectures'] = []
+            q = db.session.query(Lecture, ClassLecture).join(ClassLecture).filter(ClassLecture.class_id == id)
+            for lecture, class_lecture in q:
+                obj = lecture.json
+                obj['class_lecture_id'] = class_lecture.id
+                ret['lectures'].append(obj)
+
+        if get_course:
+            course = db.session.query(Course).filter_by(id=clazz.course_id).one()
+            ret['course'] = course.json
+
+        return jsonify({"meta": {}, "data": ret})
+
 
     @try_except
     def post(self):
@@ -819,6 +897,66 @@ class StudentView(BaseView):
     post_keys = ['first_name', 'last_name', 'github_username', 'email', 'photo_url']
 
     @try_except
+    def index(self):
+        class_id, = parse_id_from_query_args(['class_id'])
+
+        if not class_id:
+            q = db.session.query(Student)
+            students = [student.json for student in q]
+
+        else:
+            students = []
+            q = db.session.query(Student, ClassStudent).join(ClassStudent).filter(ClassStudent.class_id==class_id)
+            for student, class_student in q:
+                obj = student.json
+                obj['class_student_id'] = class_student.id
+                students.append(obj)
+
+        return jsonify({"meta": {}, "data": students})
+
+    @try_except
+    def get(self, id=None):
+        # TODO should I add assignment and attendance here?
+        get_class, get_assignment, get_attendance = parse_data_from_query_args(['class', 'assignment', 'attendance'])
+
+        try:
+            student = db.session.query(Student).filter_by(id=id).one()
+        except NoResultFound:
+            raise UserError("No students with id={}".format(id))
+
+        ret = student.json
+
+        if get_class:
+            ret['classes'] = []
+            q = db.session.query(Class, ClassStudent).join(ClassStudent).filter(ClassStudent.student_id == student.id)
+            for clazz, class_student in q:
+                obj = clazz.json
+                obj['class_student_id'] = class_student.id
+                ret['classes'].append(obj)
+
+        if get_assignment:
+            # TODO confirm with Chandler if the return values are fine here
+            ret['assignments'] = []
+            q = db.session.query(Homework, Assignment, ClassStudent).join(ClassHomework).join(Assignment).join(ClassStudent).filter(ClassStudent.student_id == id)
+            for homework, assignment, class_student in q:
+                obj = assignment.json
+                obj['homework'] = homework.json
+                obj['class_student_id'] = class_student.id
+                ret['assignments'].append(obj)
+
+        if get_attendance:
+            # TODO confirm with Chandler if the return values are fine here
+            ret['attendances'] = []
+            q = db.session.query(Lecture, Attendance, ClassStudent).join(ClassLecture).join(Attendance).join(ClassStudent).filter(ClassStudent.student_id == id)
+            for lecture, attendance, class_student in q:
+                obj = attendance.json
+                obj['lecture'] = lecture.json
+                obj['class_student_id'] = class_student.id
+                ret['attendances'].append(obj)
+
+        return jsonify({"meta": {}, "data": ret}), 200
+
+    @try_except
     def post(self):
         data = extract_data()
 
@@ -936,6 +1074,66 @@ class StudentView(BaseView):
 class LectureView(BaseView):
     model = Lecture
     post_keys = ['name', 'description']
+
+    @try_except
+    def index(self):
+        course_id, class_id = parse_id_from_query_args(['course_id', 'class_id'])
+
+        if course_id and class_id:
+            raise UserError("Both course_id and class_id cannot be specified simutaneously")
+
+        rets = []
+        if course_id:
+            q = db.session.query(Lecture, CourseLecture).join(CourseLecture).filter(CourseLecture.course_id == course_id)
+            for lecture, course_lecture in q:
+                obj = lecture.json
+                obj['course_lecture_id'] = course_lecture.id
+                rets.append(obj)
+
+        elif class_id:
+            q = db.session.query(Lecture, ClassLecture).join(ClassLecture).filter(ClassLecture.class_id == class_id)
+            for lecture, class_lecture in q:
+                obj = lecture.json
+                obj['class_lecture_id'] = class_lecture.id
+                rets.append(obj)
+
+        else:
+            q = db.session.query(Lecture)
+            rets = [lecture.json for lecture in q]
+
+        return jsonify({"meta": {"len": len(rets)}, "data": rets})
+
+    @try_except
+    def get(self, id=None):
+        get_course, get_class = parse_data_from_query_args(['course', 'class'])
+
+        try:
+            lecture = db.session.query(Lecture).filter_by(id=id).one()
+        except NoResultFound:
+            raise UserError("No lecture with id={}".format(id))
+
+        ret = lecture.json
+
+        if get_course:
+            ret['courses'] = []
+            q = db.session.query(Course, CourseLecture).join(CourseLecture).filter(CourseLecture.lecture_id == id)
+            for course, course_lecture in q:
+                obj = course.json
+                obj['course_lecture_id'] = course_lecture.id
+                ret['courses'].append(obj)
+
+        if get_class:
+            ret['classes'] = []
+            q = db.session.query(Class, ClassLecture).join(ClassLecture).filter(ClassLecture.lecture_id == id)
+            for clazz, class_lecture in q:
+                obj = clazz.json
+                obj['class_lecture_id'] = class_lecture.id
+                ret['classes'].append(obj)
+
+        return jsonify({"meta": {}, "data": ret}), 200
+
+
+
 
     @try_except
     def put(self):
@@ -1095,6 +1293,67 @@ class LectureView(BaseView):
 class HomeworkView(BaseView):
     model = Homework
     post_keys = ['name']
+
+    @try_except
+    def index(self):
+        course_id, class_id = parse_id_from_query_args(['course_id', 'class_id'])
+
+        if course_id and class_id:
+            # Should this be the correct behavior?
+            raise UserError("course_id and class_id both cannot be requested")
+
+        rets = []
+
+        if course_id:
+            q = db.session.query(Homework, CourseHomework).join(CourseHomework).filter(CourseHomework.course_id == course_id)
+            for homework, course_homework in q:
+                obj = homework.json
+                obj['course_homework_id'] = course_homework.id
+                rets.append(obj)
+
+        elif class_id:
+            q = db.session.query(Homework, ClassHomework).join(ClassHomework).filter(ClassHomework.class_id == class_id)
+            for homework, class_homework in q:
+                obj = homework.json
+                obj['class_homework_id'] = class_homework.id
+                rets.append(obj)
+
+        else:
+            q = db.session.query(Homework)
+            rets = [homework.json for homework in q]
+
+
+        return jsonify({"meta": {"len": len(rets)}, "data": rets})
+
+
+    @try_except
+    def get(self, id=None):
+        get_course, get_class = parse_data_from_query_args(['course', 'class'])
+
+        try:
+            homework = db.session.query(Homework).filter_by(id=id).one()
+        except NoResultFound:
+            raise UserError("No homework with id={}".format(id))
+
+        ret = homework.json
+
+        if get_course:
+            ret['courses'] = []
+            q = db.session.query(Course, CourseHomework).join(CourseHomework).filter(CourseHomework.homework_id == id)
+            for course, course_homework in q:
+                obj = course.json
+                obj['course_homework_id'] = course_homework.id
+                ret['courses'].append(obj)
+
+        if get_class:
+            ret['classes'] = []
+            q = db.session.query(Class, ClassHomework).join(ClassHomework).filter(ClassHomework.homework_id == id)
+            for clazz, class_homework in q:
+                obj = clazz.json
+                obj['course_homework_id'] = class_homework.id
+                ret['classes'].append(obj)
+
+        return jsonify({"meta": {}, "data": ret}), 200
 
     @try_except
     def put(self):
