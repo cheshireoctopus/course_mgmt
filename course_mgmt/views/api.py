@@ -1378,7 +1378,7 @@ class HomeworkView(BaseView):
                 None of the above happens
                 The modified Homework gets modified again
 
-        I need to think about how I'm going to differentiate these three use cases especialyl regarding the URIs:
+        I need to think about how I'm going to differentiate these three use cases especially regarding the URIs:
             Admin changes the Course level template Homework
                 Maybe just if the ID is passed in?
             Teacher changes the Class level instance Homework for the first time

@@ -147,7 +147,6 @@ Response:
         "data": {}
     }
 
-** This might fail with a foreign key error **
 
 Key      | Value
 -------- | --------
