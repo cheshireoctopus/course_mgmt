@@ -3,6 +3,29 @@ var actions = require('./constants.js').ACTIONS
 var API = require('./../constants.js').API
 
 module.exports = {
+	deleteCourse (courseId) {
+		return (dispatch, getState) => {
+			dispatch(toggleLoading(true))
+
+			let data = {
+				data: [{ id: courseId }]
+			}
+
+			$.ajax({
+				url: API.COURSE,
+				type: 'DELETE',
+				contentType: 'application/json',
+				data: JSON.stringify(data),
+			})
+			.done(() => {
+				let courses = getState().get('courses').filter(course => course.id !== courseId)
+
+				dispatch(receiveCourses(courses))
+				dispatch(toggleLoading(false))
+			})
+		}
+	},
+
 	saveForm (courseName) {
 		let data = {
 			data: [{ name: courseName }]
@@ -14,7 +37,7 @@ module.exports = {
 				type: 'POST',
 				contentType: 'application/json',
 				data: JSON.stringify(data),
-			}).done((res) => {
+			}).done(res => {
 				dispatch(toggleForm(false))
 				dispatch(addCourse(res.data[0]))
 			})

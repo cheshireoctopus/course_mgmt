@@ -10,6 +10,7 @@ module.exports = React.createClass({
 		course: React.PropTypes.object.isRequired,
 		courseClasses: React.PropTypes.array.isRequired,
 		courses: React.PropTypes.array.isRequired,
+		deleteCourse: React.PropTypes.func.isRequired,
 		isLoading: React.PropTypes.bool.isRequired,
 		isShowingCourse: React.PropTypes.bool.isRequired,
 		isShowingForm: React.PropTypes.bool.isRequired,
@@ -39,6 +40,7 @@ module.exports = React.createClass({
 			return <Course
 						{...this.props.course}
 						classes={this.props.courseClasses}
+						onDelete={this.props.deleteCourse}
 						showCourses={this.props.showCourses}
 					/>
 

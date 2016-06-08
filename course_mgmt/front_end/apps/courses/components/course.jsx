@@ -8,6 +8,7 @@ module.exports = React.createClass({
 		classes: React.PropTypes.array.isRequired,
 		id: React.PropTypes.number.isRequired,
 		name: React.PropTypes.string.isRequired,
+		onDelete: React.PropTypes.func.isRequired,
 		showCourses: React.PropTypes.func.isRequired,
 	},
 
@@ -22,7 +23,7 @@ module.exports = React.createClass({
 					<a onClick={this.props.showCourses}>Back to main</a>
 					<h3>{this.props.name}</h3>
 					<button className="btn btn-warning push-right">Edit</button>
-					<button className="btn btn-danger">Delete</button>
+					<button onClick={this.handleOnDelete} className="btn btn-danger">Delete</button>
 					<hr />
 				</div>
 				<div className="col-md-12">
@@ -31,5 +32,9 @@ module.exports = React.createClass({
 				</div>
 			</div>
 		)
+	},
+
+	handleOnDelete () {
+		this.props.onDelete(this.props.id)
 	}
 })
