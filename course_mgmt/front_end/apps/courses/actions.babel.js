@@ -1,8 +1,32 @@
 var $ = require('jquery')
 var actions = require('./constants.js').ACTIONS
 var API = require('./../constants.js').API
+var _ = require('underscore')
 
 module.exports = {
+	deleteCourse (courseId) {
+		return (dispatch, getState) => {
+			dispatch(toggleLoading(true))
+
+			let data = {
+				data: [{ id: courseId }]
+			}
+
+			$.ajax({
+				url: API.COURSE,
+				type: 'DELETE',
+				contentType: 'application/json',
+				data: JSON.stringify(data),
+			})
+			.done(() => {
+				let courses = getState().get('courses').filter(course => course.id !== courseId)
+
+				dispatch(receiveCourses(courses))
+				dispatch(toggleLoading(false))
+			})
+		}
+	},
+
 	saveForm (courseName) {
 		let data = {
 			data: [{ name: courseName }]
@@ -12,9 +36,9 @@ module.exports = {
 			$.ajax({
 				url: API.COURSE,
 				type: 'POST',
-				contentType: 'application/JSON',
+				contentType: 'application/json',
 				data: JSON.stringify(data),
-			}).done((res) => {
+			}).done(res => {
 				dispatch(toggleForm(false))
 				dispatch(addCourse(res.data[0]))
 			})
@@ -38,7 +62,8 @@ module.exports = {
 			dispatch(toggleLoading(true))
 
 			$.when(
-				dispatch(fetchCourse(courseId))
+				dispatch(fetchCourse(courseId)),
+				dispatch(fetchCourseClasses(courseId))
 			).then(() => {
 				dispatch(toggleLoading(false))
 			})
@@ -57,11 +82,12 @@ module.exports = {
 		}
 	},
 
-	toggleForm () {
+	toggleForm (courseId) {
 		return (dispatch, getState) => {
 			let isShowingForm = getState().get('isShowingForm')
+			let course = _.findWhere(getState().get('courses'), { id: courseId })
 
-			dispatch(toggleForm(!isShowingForm))
+			dispatch(toggleForm(!isShowingForm, course))
 		}
 	}
 }
@@ -80,27 +106,37 @@ function toggleLoading (value) {
 	}
 }
 
-function fetchCourse (classId) {
+function fetchCourse (courseId) {
 	return dispatch => {
-		$.get(API.COURSE + classId)
-			.then(res => {
-				dispatch(receiveCourse(res.data))
-			})
+		$.get(API.COURSE + courseId)
+			.then(res => dispatch(receiveCourse(res.data)))
+	}
+}
+
+function fetchCourseClasses (courseId) {
+	return dispatch => {
+		$.get(API.COURSE + courseId + '/class')
+			.then(res => dispatch(receiveCourseClasses(res.data)))
 	}
 }
 
 function fetchCourses () {
 	return dispatch =>
 		$.get(API.COURSE)
-			.then(res => {
-				dispatch(receiveCourses(res.data))
-			})
+			.then(res => dispatch(receiveCourses(res.data)))
 }
 
-function receiveCourse (courseObj) {
+function receiveCourse (course) {
 	return {
 		type: actions.RECEIVE_COURSE,
-		payload: { courseObj },
+		payload: { course },
+	}
+}
+
+function receiveCourseClasses (classes) {
+	return {
+		type: actions.RECEIVE_COURSE_CLASSES,
+		payload: { classes },
 	}
 }
 
@@ -111,9 +147,9 @@ function receiveCourses (courses) {
 	}
 }
 
-function toggleForm (value) {
+function toggleForm (value, course) {
 	return {
 		type: actions.TOGGLE_FORM,
-		payload: { value },
+		payload: { value, course },
 	}
 }
