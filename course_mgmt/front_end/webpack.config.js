@@ -1,3 +1,5 @@
+var path = require('path')
+
 module.exports = {
 	devtool: 'eval', // map console errors to file/line number
 	entry: {
@@ -44,6 +46,7 @@ module.exports = {
 		],
 	},
 	resolve: {
+		root: path.resolve('./apps'),
 		extensions: ['', '.js', '.jsx', '.json']
 	}
 }

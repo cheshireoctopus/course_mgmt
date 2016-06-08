@@ -1,6 +1,6 @@
 var _ = require('underscore')
 var React = require('react')
-var StudentRow = require('./student_row.jsx')
+var StudentRow = require('classes/components/student_row.jsx')
 
 module.exports = React.createClass({
 	displayName: 'Class',

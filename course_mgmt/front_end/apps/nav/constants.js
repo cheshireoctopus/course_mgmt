@@ -20,5 +20,9 @@ module.exports = {
 			title: 'Homework',
 			app: 'homework',
 		},
+		{
+			title: 'Lectures',
+			app: 'lectures',
+		},
 	]
 }

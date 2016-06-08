@@ -1,7 +1,7 @@
 var _ = require('underscore')
 var React = require('react')
-var NavLink = require('./nav_link.jsx')
-var constants = require('./../constants.js')
+var NavLink = require('nav/components/nav_link.jsx')
+var constants = require('nav/constants.js')
 
 module.exports = React.createClass({
 	displayName: 'NavController',

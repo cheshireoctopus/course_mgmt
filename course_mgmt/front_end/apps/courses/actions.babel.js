@@ -1,6 +1,6 @@
 var $ = require('jquery')
-var actions = require('./constants.js').ACTIONS
-var API = require('./../constants.js').API
+var actions = require('courses/constants.js').ACTIONS
+var API = require('constants.js').API
 var _ = require('underscore')
 
 module.exports = {

@@ -1,9 +1,9 @@
 var React = require('react')
 var ReactDOM = require('react-dom')
-var Nav = require('./nav/components/controller.jsx')
-var Classes = require('./classes/index.babel')
-var Courses = require('./courses/index.babel')
-var Students = require('./students/index.babel')
+var Nav = require('nav/components/controller.jsx')
+var Classes = require('classes/index.babel')
+var Courses = require('courses/index.babel')
+var Students = require('students/index.babel')
 
 module.exports = React.createClass({
 	displayName: 'Main',

@@ -1,6 +1,6 @@
 var $ = require('jquery')
-var actions = require('./constants').ACTIONS
-var API = require('../constants.js').API
+var actions = require('classes/constants').ACTIONS
+var API = require('constants.js').API
 
 module.exports = {
 	setup () {

@@ -1,9 +1,9 @@
 var React = require('react')
-var createStore = require('../redux/store.babel.js')
-var actions = require('./actions.babel')
-var Reducer = require('./reducer.babel')
-var Controller = require('../redux/controller.jsx')
-var Classes = require('./components/controller.jsx')
+var createStore = require('redux/store.babel.js')
+var actions = require('classes/actions.babel')
+var Reducer = require('classes/reducer.babel')
+var Controller = require('redux/controller.jsx')
+var Classes = require('classes/components/controller.jsx')
 
 module.exports = options => {
     let store = createStore(Reducer)

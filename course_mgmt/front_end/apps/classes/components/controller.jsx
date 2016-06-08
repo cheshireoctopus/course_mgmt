@@ -1,7 +1,7 @@
 var React = require('react')
-var Class = require('./class.jsx')
-var Classes = require('./classes.jsx')
-var ClassForm = require('./class_form.jsx')
+var Class = require('classes/components/class.jsx')
+var Classes = require('classes/components/classes.jsx')
+var ClassForm = require('classes/components/class_form.jsx')
 
 module.exports = React.createClass({
 	displayName: 'ClassesController',
