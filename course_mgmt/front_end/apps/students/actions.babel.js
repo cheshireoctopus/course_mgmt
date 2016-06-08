@@ -1,5 +1,5 @@
 var $ = require('jquery')
-var actions = require('./constants').ACTIONS
+var actions = require('students/constants').ACTIONS
 
 module.exports = {
 	showStudent () {

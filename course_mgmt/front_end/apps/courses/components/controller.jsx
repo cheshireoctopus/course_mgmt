@@ -1,7 +1,7 @@
 var React = require('react')
-var Course = require('./course.jsx')
-var Courses = require('./courses.jsx')
-var CourseForm = require('./course_form.jsx')
+var Course = require('courses/components/course.jsx')
+var Courses = require('courses/components/courses.jsx')
+var CourseForm = require('courses/components/course_form.jsx')
 
 module.exports = React.createClass({
 	displayName: 'CoursesController',

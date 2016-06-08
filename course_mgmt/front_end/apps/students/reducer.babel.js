@@ -1,4 +1,4 @@
-var actions = require('./constants').ACTIONS
+var actions = require('students/constants').ACTIONS
 var Immutable = require('immutable')
 
 let initialState = Immutable.Map({

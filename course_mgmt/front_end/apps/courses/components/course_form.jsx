@@ -1,6 +1,6 @@
 var $ = require('jquery')
 var React = require('react')
-var API = require('./../../constants.js').API
+var API = require('constants.js').API
 
 module.exports = React.createClass({
 	displayName: 'CourseForm',

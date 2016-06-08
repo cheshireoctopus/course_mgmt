@@ -1,6 +1,6 @@
 var React = require('react')
-var Student = require('./student.jsx')
-var Students = require('./students.jsx')
+var Student = require('students/components/student.jsx')
+var Students = require('students/components/students.jsx')
 
 module.exports = React.createClass({
 	displayName: 'StudentsController',
