@@ -5,7 +5,8 @@ from course_mgmt.views import ServerError
 from datetime import datetime
 date_format = '%Y-%m-%d %H:%M:%S'
 from sqlalchemy.sql.sqltypes import Date, DateTime
-
+from sqlalchemy.orm import validates
+from course_mgmt.views import UserError
 
 def to_json(inst, cls):
     """
@@ -46,6 +47,14 @@ from course_mgmt.models import *
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 
+course = Course(name='')
+db.session.add(course)
+try:
+    db.session.commit()
+except IntegrityError as ex:
+    print ex.message
+
+db.session.rollback()
 
 class SqliteSequence(db.Model):
     __tablename__ = 'sqlite_sequence'
@@ -63,6 +72,7 @@ class Hello(db.Model):
 db.create_all()
 '''
 
+
 class BaseModel(db.Model):
     '''
     All Models should extend the Base model so that they can implement the json method
@@ -73,21 +83,27 @@ class BaseModel(db.Model):
     def json(self):
         return to_json(self, self.__class__)
 
+
+
 class Course(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String, unique=True, nullable=False)
     classes = db.relationship('Class', backref=db.backref('course'))
-    __table_args__ = {'sqlite_autoincrement': True}
-    plural = 'course'
+
+    __table_args__ = (db.CheckConstraint("name <> ''"), {'sqlite_autoincrement': True})
+
 
 class Class(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String, nullable=False)
     start_dt = db.Column(db.DateTime, nullable=False)
     end_dt = db.Column(db.DateTime, nullable=False)
     course_id = db.Column(db.Integer, db.ForeignKey('course.id', ondelete='CASCADE'), nullable=False)
-    __table_args__ = (db.UniqueConstraint('course_id', 'start_dt', 'end_dt'), {'sqlite_autoincrement': True})
 
-    plural = 'class'
+    __table_args__ = (db.UniqueConstraint('course_id', 'name'),
+                      db.CheckConstraint("name <> ''"),
+                      {'sqlite_autoincrement': True})
+
 
 
 class Student(BaseModel):
@@ -98,9 +114,12 @@ class Student(BaseModel):
     email = db.Column(db.String, nullable=False)
     photo_url = db.Column(db.String)
 
-    __table_args__ = {'sqlite_autoincrement': True}
-
-    plural = 'student'
+    __table_args__ = (db.CheckConstraint("first_name <> ''"),
+                      db.CheckConstraint("last_name <> ''"),
+                      db.CheckConstraint("github_username <> ''"),
+                      db.CheckConstraint("email <> ''"),
+                      db.CheckConstraint("photo_url <> ''"),
+                      {'sqlite_autoincrement': True})
 
 
 class Lecture(BaseModel):
@@ -108,17 +127,18 @@ class Lecture(BaseModel):
     This could probably be associated to the course level just like homework is ...
     '''
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
+    name = db.Column(db.String, nullable=False)
     description = db.Column(db.String)
 
-    __table__args__ = {'sqlite_autoincrement': True}
+    __table__args__ = (db.CheckConstraint("name <> ''"),
+                       {'sqlite_autoincrement': True})
 
-    plural = 'lecture'
 
 class ClassStudent(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
     class_id = db.Column(db.Integer, db.ForeignKey('class.id', ondelete='CASCADE'), nullable=False)
     student_id = db.Column(db.Integer, db.ForeignKey('student.id', ondelete='CASCADE'), nullable=False)
+
     __table_args__ = (db.UniqueConstraint('class_id', 'student_id'), {'sqlite_autoincrement': True})
 
 
@@ -131,7 +151,8 @@ class Homework(BaseModel):
     # This is the case when a Class Homework is modified from the usual course homework
     parent_id = db.Column(db.Integer, db.ForeignKey('homework.id'), nullable=True)
 
-    __table_args__ = {'sqlite_autoincrement': True}
+    __table_args__ = (db.CheckConstraint("name <> ''"),
+                      {'sqlite_autoincrement': True})
 
 
 class CourseHomework(BaseModel):
@@ -147,6 +168,7 @@ class ClassHomework(BaseModel):
     class_id = db.Column(db.Integer, db.ForeignKey('class.id'), nullable=False)
     homework_id = db.Column(db.Integer, db.ForeignKey('homework.id'), nullable=False)
     class_lecture_id = db.Column(db.Integer, db.ForeignKey('class_lecture.id'), nullable=True)
+
     __table_args__ = (db.UniqueConstraint('class_id', 'homework_id'), {'sqlite_autoincrement': True})
 
 
@@ -161,7 +183,7 @@ class ClassLecture(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
     class_id = db.Column(db.Integer, db.ForeignKey('class.id'), nullable=False)
     lecture_id = db.Column(db.Integer, db.ForeignKey('lecture.id'), nullable=False)
-    dt = db.Column(db.DateTime)
+    dt = db.Column(db.DateTime, nullable=True)  # nullable because it will instantiate as null
 
     __table_args__ = (db.UniqueConstraint('class_id', 'lecture_id'), {'sqlite_autoincrement': True})
 
@@ -170,7 +192,7 @@ class Assignment(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
     class_student_id = db.Column(db.Integer, db.ForeignKey('class_student.id', ondelete='CASCADE'), nullable=False)
     class_homework_id = db.Column(db.Integer, db.ForeignKey('class_homework.id', ondelete='CASCADE'), nullable=False)
-    is_completed = db.Column(db.Integer, default=0)
+    is_completed = db.Column(db.Boolean, nullable=False, default=False)
 
     __table_args__ = (db.UniqueConstraint('class_student_id', 'class_homework_id'), {'sqlite_autoincrement': True})
 

@@ -8,3 +8,5 @@ script: sh run_travis_test.sh
 after_success:
  - coveralls
  - bash <(curl -s https://codecov.io/bash)
+notifications:
+  slack: coursemgmt:x30CmBOsCQGoO8jLDLn4rfcs

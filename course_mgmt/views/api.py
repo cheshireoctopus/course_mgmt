@@ -554,7 +554,7 @@ class CourseView(BaseView):
 
 class ClassView(BaseView):
     model = Class
-    post_keys = ['start_dt', 'end_dt', 'course_id']
+    post_keys = ['name', 'start_dt', 'end_dt', 'course_id']
 
     @try_except
     def index(self):
@@ -601,7 +601,9 @@ class ClassView(BaseView):
             q = db.session.query(Lecture, ClassLecture).join(ClassLecture).filter(ClassLecture.class_id == id)
             for lecture, class_lecture in q:
                 obj = lecture.json
+                cl = class_lecture.json  # I need to do this to pull date out in proper format for some reason
                 obj['class_lecture_id'] = class_lecture.id
+                obj['dt'] = cl['dt']
                 ret['lectures'].append(obj)
 
         if get_course:
@@ -1094,7 +1096,9 @@ class LectureView(BaseView):
             q = db.session.query(Lecture, ClassLecture).join(ClassLecture).filter(ClassLecture.class_id == class_id)
             for lecture, class_lecture in q:
                 obj = lecture.json
+                cl = class_lecture.json  # I have to do this or the date formatting is odd
                 obj['class_lecture_id'] = class_lecture.id
+                obj['dt'] = cl['dt']
                 rets.append(obj)
 
         else:
@@ -1127,7 +1131,9 @@ class LectureView(BaseView):
             q = db.session.query(Class, ClassLecture).join(ClassLecture).filter(ClassLecture.lecture_id == id)
             for clazz, class_lecture in q:
                 obj = clazz.json
+                cl = class_lecture.json
                 obj['class_lecture_id'] = class_lecture.id
+                obj['dt'] = cl['dt']
                 ret['classes'].append(obj)
 
         return jsonify({"meta": {}, "data": ret}), 200
@@ -1350,7 +1356,7 @@ class HomeworkView(BaseView):
             q = db.session.query(Class, ClassHomework).join(ClassHomework).filter(ClassHomework.homework_id == id)
             for clazz, class_homework in q:
                 obj = clazz.json
-                obj['course_homework_id'] = class_homework.id
+                obj['class_homework_id'] = class_homework.id
                 ret['classes'].append(obj)
 
         return jsonify({"meta": {}, "data": ret}), 200
