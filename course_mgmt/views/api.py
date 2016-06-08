@@ -286,6 +286,7 @@ class BaseView(FlaskView):
         return self.get(None)
 
     @try_except
+    @route('/<int:id>/', methods=['GET'])
     def get(self, id=None):
         if self.model is None:
             raise NotImplementedError("Define model")
@@ -369,6 +370,7 @@ class CourseView(BaseView):
     post_keys = ['name']
 
     @try_except
+    @route('/<int:id>/', methods=['GET'])
     def get(self, id=None):
         app.logger.debug(request.args)
 
@@ -569,6 +571,7 @@ class ClassView(BaseView):
         return jsonify({"meta": {"len": len(classes)}, "data": classes}), 200
 
     @try_except
+    @route('/<int:id>/', methods=['GET'])
     def get(self, id=None):
 
         get_student, get_homework, get_lecture, get_course = parse_data_from_query_args(['student', 'homework', 'lecture', 'course'])
@@ -917,6 +920,7 @@ class StudentView(BaseView):
         return jsonify({"meta": {}, "data": students})
 
     @try_except
+    @route('/<int:id>/', methods=['GET'])
     def get(self, id=None):
         # TODO should I add assignment and attendance here?
         get_class, get_assignment, get_attendance = parse_data_from_query_args(['class', 'assignment', 'attendance'])
@@ -1108,6 +1112,7 @@ class LectureView(BaseView):
         return jsonify({"meta": {"len": len(rets)}, "data": rets})
 
     @try_except
+    @route('/<int:id>/', methods=['GET'])
     def get(self, id=None):
         get_course, get_class = parse_data_from_query_args(['course', 'class'])
 
@@ -1333,6 +1338,7 @@ class HomeworkView(BaseView):
 
 
     @try_except
+    @route('/<int:id>/', methods=['GET'])
     def get(self, id=None):
         get_course, get_class = parse_data_from_query_args(['course', 'class'])
 
