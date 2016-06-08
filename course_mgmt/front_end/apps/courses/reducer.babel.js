@@ -30,7 +30,8 @@ module.exports = (state = initialState, action) => {
 }
 
 function addCourse (state, payload) {
-	let courses = state.get('courses').push(payload.course)
+	let courses = state.get('courses')
+	courses.push(payload.course)
 
 	return state.merge({ courses })
 }
@@ -62,6 +63,7 @@ function receiveCourseClassses (state, payload) {
 function toggleForm (state, payload) {
 	return state.merge({
 		isShowingForm: payload.value,
+		course: payload.course || {},
 	})
 }
 

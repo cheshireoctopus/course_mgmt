@@ -6,6 +6,7 @@ module.exports = React.createClass({
 	displayName: 'CourseForm',
 
 	propTypes: {
+		course: React.PropTypes.object,
 		onClose: React.PropTypes.func.isRequired,
 		onSave: React.PropTypes.func.isRequired,
 	},
@@ -14,6 +15,10 @@ module.exports = React.createClass({
 		return {
 			isLoading: false,
 		}
+	},
+
+	componentDidMount () {
+		if (!_.isEmpty(this.props.course)) this.refs.courseName.value = this.props.course.name
 	},
 
 	render () {
@@ -29,13 +34,17 @@ module.exports = React.createClass({
 							</div>
 							<div className="form-group text-right">
 								<button className="btn btn-primary" onClick={this.handleFormSave}>Create</button>
-								<button className="btn btn-default" onClick={this.props.onClose}>Cancel</button>
+								<button className="btn btn-default" onClick={this.handleOnClose}>Cancel</button>
 							</div>
 						</div>
 					}
 				</div>
 			</div>
 		)
+	},
+
+	handleOnClose () {
+		this.props.onClose(this.props.course.id)
 	},
 
 	handleFormSave () {

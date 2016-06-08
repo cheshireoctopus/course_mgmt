@@ -41,6 +41,7 @@ module.exports = React.createClass({
 						{...this.props.course}
 						classes={this.props.courseClasses}
 						onDelete={this.props.deleteCourse}
+						onEdit={this.props.toggleForm}
 						showCourses={this.props.showCourses}
 					/>
 
@@ -48,6 +49,6 @@ module.exports = React.createClass({
 	},
 
 	renderForm () {
-		return <CourseForm onSave={this.props.saveForm} onClose={this.props.toggleForm} />
+		return <CourseForm course={this.props.course} onSave={this.props.saveForm} onClose={this.props.toggleForm} />
 	}
 })

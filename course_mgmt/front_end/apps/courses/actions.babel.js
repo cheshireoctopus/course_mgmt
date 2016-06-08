@@ -1,6 +1,7 @@
 var $ = require('jquery')
 var actions = require('./constants.js').ACTIONS
 var API = require('./../constants.js').API
+var _ = require('underscore')
 
 module.exports = {
 	deleteCourse (courseId) {
@@ -81,11 +82,12 @@ module.exports = {
 		}
 	},
 
-	toggleForm () {
+	toggleForm (courseId) {
 		return (dispatch, getState) => {
 			let isShowingForm = getState().get('isShowingForm')
+			let course = _.findWhere(getState().get('courses'), { id: courseId })
 
-			dispatch(toggleForm(!isShowingForm))
+			dispatch(toggleForm(!isShowingForm, course))
 		}
 	}
 }
@@ -145,9 +147,9 @@ function receiveCourses (courses) {
 	}
 }
 
-function toggleForm (value) {
+function toggleForm (value, course) {
 	return {
 		type: actions.TOGGLE_FORM,
-		payload: { value },
+		payload: { value, course },
 	}
 }
