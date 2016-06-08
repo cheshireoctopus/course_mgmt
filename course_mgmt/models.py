@@ -165,8 +165,8 @@ class CourseHomework(BaseModel):
 
 class ClassHomework(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
-    class_id = db.Column(db.Integer, db.ForeignKey('class.id'), nullable=False)
-    homework_id = db.Column(db.Integer, db.ForeignKey('homework.id'), nullable=False)
+    class_id = db.Column(db.Integer, db.ForeignKey('class.id', ondelete='CASCADE'), nullable=False)
+    homework_id = db.Column(db.Integer, db.ForeignKey('homework.id', ondelete='CASCADE'), nullable=False)
     class_lecture_id = db.Column(db.Integer, db.ForeignKey('class_lecture.id'), nullable=True)
 
     __table_args__ = (db.UniqueConstraint('class_id', 'homework_id'), {'sqlite_autoincrement': True})
@@ -174,15 +174,15 @@ class ClassHomework(BaseModel):
 
 class CourseLecture(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
-    course_id = db.Column(db.Integer, db.ForeignKey('course.id'), nullable=False)
-    lecture_id = db.Column(db.Integer, db.ForeignKey('lecture.id'), nullable=False)
+    course_id = db.Column(db.Integer, db.ForeignKey('course.id', ondelete='CASCADE'), nullable=False)
+    lecture_id = db.Column(db.Integer, db.ForeignKey('lecture.id', ondelete='CASCADE'), nullable=False)
 
     __table_args__ = (db.UniqueConstraint('course_id', 'lecture_id'), {'sqlite_autoincrement': True})
 
 class ClassLecture(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
-    class_id = db.Column(db.Integer, db.ForeignKey('class.id'), nullable=False)
-    lecture_id = db.Column(db.Integer, db.ForeignKey('lecture.id'), nullable=False)
+    class_id = db.Column(db.Integer, db.ForeignKey('class.id', ondelete='CASCADE'), nullable=False)
+    lecture_id = db.Column(db.Integer, db.ForeignKey('lecture.id', ondelete='CASCADE'), nullable=False)
     dt = db.Column(db.DateTime, nullable=True)  # nullable because it will instantiate as null
 
     __table_args__ = (db.UniqueConstraint('class_id', 'lecture_id'), {'sqlite_autoincrement': True})

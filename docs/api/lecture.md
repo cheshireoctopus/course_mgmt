@@ -8,7 +8,8 @@ Method   | POST
 Notes    | This API accepts five different types of objects in data. It will return the objects in the same order.
 
 
-    api/lecture/ handles multiple operations, which can be mixed and matched in the same request
+    api/lecture/ handles multiple operations
+        which can be mixed and matched in the same request
     1. Create a new Lecture
         No "id" is present; no "course_id" or "class_id" are present
     2. Create a new Lecture and associate it to a previously created Course

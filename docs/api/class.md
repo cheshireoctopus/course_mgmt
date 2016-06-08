@@ -122,8 +122,6 @@ Response:
 
 ## Update a class
 
-** NOT IMPLEMENTED **
-
 Key      | Value
 -------- | --------
 URI      | /api/class/{id}
@@ -149,9 +147,7 @@ Response:
         "data": {}
     }
 
-## Delete a class
-
-** NOT IMPLEMENTED YET **
+** This might fail with a foreign key error **
 
 Key      | Value
 -------- | --------

@@ -101,13 +101,12 @@ Response:
 
 ## Update a Course
 
-** NOT IMPLEMENTED YET **
 
 Key      | Value
 -------- | --------
-URI      | /api/course/{id}
+URI      | /api/course/
 Method   | PUT
-Note     | Do not follow up with a trailing slash
+Note     | Make sure to include the primary key
 
 Payload:
 
@@ -127,16 +126,20 @@ Response:
         "data": {}
     }
 
+Should I include anything in the response?
+
 ## Delete a Course
-** NOT IMPLEMENTED YET **
+
 Key      | Value
 -------- | --------
-URI      | /api/course/{id}
+URI      | /api/course/
 Method   | DELETE
 
 Response:
 
     {
-        "meta": {},
+        "meta": {
+            "num_deleted": 2
+        },
         "data": {}
     }

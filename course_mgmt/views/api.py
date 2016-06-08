@@ -352,7 +352,7 @@ class BaseView(FlaskView):
 
         data = extract_data()
         if not isinstance(data, list):
-            raise UserError({"data attribute should be dict/json"})
+            raise UserError({"data attribute should be array"})
 
         bulk_update(self.model, data)
 

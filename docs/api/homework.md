@@ -5,7 +5,9 @@ URI      | /api/homework/
 Method   | POST
 Notes    | This API accepts five different types of objects in data. It will return the objects in the same order.
 
-    api/homework/ handles multiple operations, which can be mixed and matched in the same request
+    /api/homework/ handles multiple operations
+        which can be mixed and matched in the same request
+        
     1. Create a new Homework
         No "id" is present; no "course_id" or "class_id" are present
     2. Create a new Homework and associate it to a previously created Course
@@ -131,7 +133,7 @@ URI      | /api/homework/
 Query Params | ?course_id=1
 Query Params | ?class_id=1
 Method   | GET
-Notes:   | Optionally include ?course_id=1 or ?class_id=1 to filter by course_id or class_id, but not both. If you add `?class_id=1` or `?course_id=1`, each of the objects will have a `class_homework_id` or `course_homework_id` added, respectively. This doesn't accept data query parameters. Should it?
+Notes:   | Optionally include `?course_id=1` or `?class_id=1` to filter by `course_id` or `class_id`, but not both. If you add `?class_id=1` or `?course_id=1`, each of the objects will have a `class_homework_id` or `course_homework_id` added, respectively. This doesn't accept data query parameters. Should it?
 
 Response:
 
