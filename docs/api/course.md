@@ -21,7 +21,7 @@ Response:
 
     {
         "meta": {
-            "len": <int: length of items in data array>
+            "len": 1
         },
         "data": [
             {
@@ -37,7 +37,8 @@ Key      | Value
 -------- | --------
 URI      | /api/course/{id}
 Method   | GET
-Note     | Do not follow up with a trailing slash
+Query Params | ?data=homework,lecture,class
+Note     | Do not follow up with a trailing slash. To optionally include the corresponding Classes, Homework, and Lectures for this Course, use the query params as above.
 
 Response:
 
@@ -45,7 +46,31 @@ Response:
         "meta": {},
         "data": {
             "id": 1,
-            "name": "Python 101"
+            "name": "Python 101",
+            "classes": [
+                {
+                    "course_id": 1,
+                    "id": 1,
+                    "start_dt": "2017-01-01 00:00:00",
+                    "end_dt": "2017-05-31 00:00:00"
+                }
+            ],
+            "homeworks": [
+                {
+                    "id": 1,
+                    "course_homework_id": 1,
+                    "name": "Why Python > Java",
+                    "parent_id": ""
+                }
+            ],
+            "lectures": [
+                {
+                    "id": 1,
+                    "course_lecture_id": 1,
+                    "description": "The first lecture",
+                    "name": "Lecture 1"
+                }
+            ]
         }
     }
 
@@ -54,6 +79,8 @@ Key      | Value
 -------- | --------
 URI      | /api/course/
 Method   | GET
+Query Params | N/A
+Notes    | This doesn't support the query params like in the previous api. Should it?
 
 Response:
 
@@ -73,11 +100,13 @@ Response:
     }
 
 ## Update a Course
+
+
 Key      | Value
 -------- | --------
-URI      | /api/course/{id}
+URI      | /api/course/
 Method   | PUT
-Note     | Do not follow up with a trailing slash
+Note     | Make sure to include the primary key
 
 Payload:
 
@@ -97,153 +126,20 @@ Response:
         "data": {}
     }
 
+Should I include anything in the response?
+
 ## Delete a Course
-** NOT IMPLEMENTED YET **
+
 Key      | Value
 -------- | --------
-URI      | /api/course/{id}
+URI      | /api/course/
 Method   | DELETE
 
 Response:
 
     {
-        "meta": {},
+        "meta": {
+            "num_deleted": 2
+        },
         "data": {}
     }
-
-## Create a Class and add to a Course
-**Not implemented yet**
-
-Key      | Value
--------- | --------
-URI      | /api/course/{id}/class/
-Method   | POST
-Note     | The same can be accomplished on [Class](class.md).
-
-Payload:
-
-    {
-        "data": [
-            {
-                "name": "Why Python > Java"
-            },{
-                "name": "Why Python > JavaScript"
-            }
-        ]
-    }
-
-Response:
-
-    {
-        "data": [
-            {
-                "id": 1,
-                "name": "Why Python > Java",
-                "course_id": 1
-            },{
-                "id: 2,
-                "name": "Why Python > JavaScript",
-                "course_id": 1
-            }
-        ]
-    }
-
-## Get all Classes for a Course
-Key      | Value
--------- | --------
-URI      | /api/course/{id}/class/
-Method   | GET
-
-Response:
-
-    {
-        "meta": {
-            "len": 2,
-        },
-        "data": [
-            {
-                "id": 1,
-                "name": "Why Python > Java",
-                "course_id": 1
-            },{
-                "id: 2,
-                "name": "Why Python > JavaScript",
-                "course_id": 1
-            }
-        ]
-    }
-
-## Add Homework to a Course
-Key      | Value
--------- | --------
-URI      | /api/course/{id}/homework/
-Method   | POST
-Note     | This can NOT be accomplished through [Homework](homework.md).
-
-There are two options for this.
-
-### Homework has already previously been created
-We only want to associate the Homework with this course
-Payload:
-
-    {
-        "data": [
-            {
-                "homework_id": 1
-            },
-            ...
-        ]
-    }
-
-### Create Homework while simutaneously associating it with a Course
-We want to create a homework and then add it
-Payload:
-
-    {
-        "data": [
-            {
-                "name": "Metaclasses"
-            },
-            ...
-        ]
-    }
-
-### The response is the same in either case:
-Response:
-
-    {
-        "meta": {
-            "len": 1
-        },
-        "data": [
-            {
-                "course_id": 1,
-                "homework_id': 1
-            },
-            ...
-        ]
-    }
-
-Note that you will NOT receive the Homework's attributes, other than the `id`.
-If you want that, then create a Homework through the [Homework](homework.md) API.
-
-## See all Homework for a Course
-Key      | Value
--------- | --------
-URI      | /api/course/{id}/homework/
-Method   | GET
-Response:
-
-    {
-        "meta": {
-            "len": 1
-        },
-        "data": [
-            {
-                "id": 1,
-                "name": "Metaclasses"
-            }
-        ]
-    }
-
-Note that just returns the Homework objects but NOT the associated CourseHomework IDs. Should it??

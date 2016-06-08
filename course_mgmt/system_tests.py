@@ -151,7 +151,7 @@ def get_lecture(id):
     return hit_api(api, method=method)
 
 
-def create_class(course_id, start_dt, end_dt):
+def create_class(course_id, name, start_dt, end_dt):
     '''
     Utility function to create a single class
     '''
@@ -161,6 +161,7 @@ def create_class(course_id, start_dt, end_dt):
         'data': [
             {
                 'course_id': course_id,
+                'name': name,
                 'start_dt': start_dt,
                 'end_dt': end_dt
             }
@@ -169,7 +170,7 @@ def create_class(course_id, start_dt, end_dt):
 
     return hit_api(api, data, method=method)
 
-def update_class(id, start_dt, end_dt):
+def update_class(id, name, start_dt, end_dt):
     api = '/api/class/'
     method = 'PUT'
     data = {
@@ -177,7 +178,8 @@ def update_class(id, start_dt, end_dt):
             {
                 'id': id,
                 'start_dt': start_dt,
-                'end_dt': end_dt
+                'end_dt': end_dt,
+                'name': name
             }
         ]
     }
@@ -360,23 +362,23 @@ class TestAll(unittest.TestCase):
         self.assert_data_equals(r, id=course_id, name='Chandler''s Course')
 
         ## Create Class
-        r = create_class(course_id=course_id, start_dt='2016-01-01 00:00:00', end_dt='2016-05-30 00:00:00')
+        r = create_class(course_id=course_id, name='Spring 2016', start_dt='2016-01-01 00:00:00', end_dt='2016-05-30 00:00:00')
         self.assertEquals(r.status_code, 200)
 
         class_id = get_first_id_from_response(r)
 
         # Get Class
         r = get_class(class_id)
-        self.assert_data_equals(r, id=class_id, start_dt='2016-01-01 00:00:00', end_dt='2016-05-30 00:00:00',
+        self.assert_data_equals(r, id=class_id, name='Spring 2016', start_dt='2016-01-01 00:00:00', end_dt='2016-05-30 00:00:00',
                                 course_id=course_id)
 
         ## Update Class
-        r = update_class(id=class_id, start_dt='2015-01-01 00:00:00', end_dt='2015-05-30 00:00:00')
+        r = update_class(id=class_id, name='Spring 2015', start_dt='2015-01-01 00:00:00', end_dt='2015-05-30 00:00:00')
         self.assertEquals(r.status_code, 200)
 
         # Get Class
         r = get_class(class_id)
-        self.assert_data_equals(r, id=class_id, start_dt='2015-01-01 00:00:00', end_dt='2015-05-30 00:00:00', course_id=course_id)
+        self.assert_data_equals(r, id=class_id, name='Spring 2015', start_dt='2015-01-01 00:00:00', end_dt='2015-05-30 00:00:00', course_id=course_id)
 
 
         #r = create_class_lecture(class_id=class_id, name='Lecture 1', description='The first lecturel', dt='2016-01-01 00:00:00')
