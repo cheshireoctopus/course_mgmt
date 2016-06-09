@@ -3,9 +3,8 @@ var Immutable = require('immutable')
 
 var initialState = Immutable.Map({
 	course: {},
-	courseClasses: [],
-	courses: [],
-	isLoading: false,
+	courses: {},
+	isLoading: true,
 	isShowingCourse: false,
 	isShowingForm: false,
 })
@@ -18,8 +17,8 @@ module.exports = (state = initialState, action) => {
 			return receiveCourses(state, action.payload)
 		case actions.RECEIVE_COURSE:
 			return receiveCourse(state, action.payload)
-		case actions.RECEIVE_COURSE_CLASSES:
-			return receiveCourseClassses(state, action.payload)
+		case actions.SHOW_COURSES:
+			return showCourses(state, action.payload)
 		case actions.TOGGLE_FORM:
 			return toggleForm(state, action.payload)
 		case actions.TOGGLE_LOADING:
@@ -37,14 +36,10 @@ function addCourse (state, payload) {
 }
 
 function receiveCourses (state, payload) {
-	let courses = state.get('courses').concat(payload.courses)
-
-	return state.set('courses', payload.courses)
-		.merge({
-			course: {},
-			courseClasses: [],
-			isShowingCourse: false,
-		})
+	return state.merge({
+		courses: payload.courses,
+		isShowingCourse: false,
+	})
 }
 
 function receiveCourse (state, payload) {
@@ -54,9 +49,11 @@ function receiveCourse (state, payload) {
 	})
 }
 
-function receiveCourseClassses (state, payload) {
+
+function showCourses (state, payload) {
 	return state.merge({
-		courseClasses: payload.classes,
+		course: {},
+		isShowingCourse: false,
 	})
 }
 

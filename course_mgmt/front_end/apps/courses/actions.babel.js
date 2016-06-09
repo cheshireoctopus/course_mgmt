@@ -2,8 +2,21 @@ var $ = require('jquery')
 var actions = require('courses/constants.js').ACTIONS
 var API = require('constants.js').API
 var _ = require('underscore')
+var Course = require('data/models/course.babel')
 
 module.exports = {
+	setup (options) {
+		return dispatch => {
+			dispatch(toggleLoading(true))
+
+			$.when(
+				dispatch(fetchCourses(options.courses))
+			).then(() => {
+				dispatch(toggleLoading(false))
+			})
+		}
+	},
+
 	deleteCourse (courseId) {
 		return (dispatch, getState) => {
 			dispatch(toggleLoading(true))
@@ -45,25 +58,12 @@ module.exports = {
 		}
 	},
 
-	setup () {
-		return dispatch => {
-			dispatch(toggleLoading(true))
-
-			$.when(
-				dispatch(fetchCourses())
-			).then(() => {
-				dispatch(toggleLoading(false))
-			})
-		}
-	},
-
 	showCourse (courseId) {
 		return dispatch => {
 			dispatch(toggleLoading(true))
 
 			$.when(
-				dispatch(fetchCourse(courseId)),
-				dispatch(fetchCourseClasses(courseId))
+				dispatch(fetchCourseInfo(courseId))
 			).then(() => {
 				dispatch(toggleLoading(false))
 			})
@@ -71,14 +71,8 @@ module.exports = {
 	},
 
 	showCourses () {
-		return dispatch => {
-			dispatch(toggleLoading(true))
-
-			$.when(
-				dispatch(fetchCourses())
-			).then(() => {
-				dispatch(toggleLoading(false))
-			})
+		return {
+			type: actions.SHOW_COURSES,
 		}
 	},
 
@@ -106,24 +100,23 @@ function toggleLoading (value) {
 	}
 }
 
-function fetchCourse (courseId) {
+function fetchCourseInfo (id) {
 	return dispatch => {
-		$.get(API.COURSE + courseId)
-			.then(res => dispatch(receiveCourse(res.data)))
+		let course = new Course({ id })
+		course
+			.fetch({
+				data: 'data=homework,lecture,class',
+			})
+			.then(() => dispatch(receiveCourse(course)))
 	}
 }
 
-function fetchCourseClasses (courseId) {
+function fetchCourses (courses) {
 	return dispatch => {
-		$.get(API.COURSE + courseId + '/class')
-			.then(res => dispatch(receiveCourseClasses(res.data)))
+		courses
+			.fetch()
+			.then(() => dispatch(receiveCourses(courses)))
 	}
-}
-
-function fetchCourses () {
-	return dispatch =>
-		$.get(API.COURSE)
-			.then(res => dispatch(receiveCourses(res.data)))
 }
 
 function receiveCourse (course) {

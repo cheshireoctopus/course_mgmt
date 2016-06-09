@@ -1,6 +1,6 @@
 var ReactDOM = require('react-dom')
 var React = require('react')
-var Main = require('./main.jsx')
+var Main = require('main.jsx')
 var assert = require('assert')
 
 module.exports = options => {
@@ -8,7 +8,7 @@ module.exports = options => {
 	assert(options.app)
 
 	let props = {
-		app: options.app
+		app: options.app,
 	}
 
 	let main = React.createElement(Main, props)

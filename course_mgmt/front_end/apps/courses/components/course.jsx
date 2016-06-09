@@ -6,7 +6,9 @@ module.exports = React.createClass({
 
 	propTypes: {
 		classes: React.PropTypes.array.isRequired,
+		homeworks: React.PropTypes.array.isRequired,
 		id: React.PropTypes.number.isRequired,
+		lectures: React.PropTypes.array.isRequired,
 		name: React.PropTypes.string.isRequired,
 		onDelete: React.PropTypes.func.isRequired,
 		onEdit: React.PropTypes.func.isRequired,
