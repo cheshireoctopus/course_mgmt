@@ -8,8 +8,7 @@ module.exports = React.createClass({
 
 	propTypes: {
 		course: React.PropTypes.object.isRequired,
-		courseClasses: React.PropTypes.array.isRequired,
-		courses: React.PropTypes.array.isRequired,
+		courses: React.PropTypes.object.isRequired,
 		deleteCourse: React.PropTypes.func.isRequired,
 		isLoading: React.PropTypes.bool.isRequired,
 		isShowingCourse: React.PropTypes.bool.isRequired,
@@ -38,7 +37,7 @@ module.exports = React.createClass({
 		if (this.props.isLoading) return <h3>Loading...</h3>
 		if (this.props.isShowingCourse)
 			return <Course
-						{...this.props.course}
+						{...this.props.course.attributes}
 						classes={this.props.courseClasses}
 						onDelete={this.props.deleteCourse}
 						onEdit={this.props.toggleForm}
