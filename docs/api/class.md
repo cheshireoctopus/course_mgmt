@@ -40,10 +40,10 @@ Response:
 ## Get a Class
 Key      | Value
 -------- | --------
-URI      | /api/class/{id}
+URI      | /api/class/{id}/
 Method   | GET
 Query Params | ?data=student,homework,lecture,course
-Note     | Do not follow up with a trailing slash. To optionally include any of the associated Students, Homeworks, Lectures, or Course with this Class, include the query parameters.
+Note     | To optionally include any of the associated Students, Homeworks, Lectures, or Course with this Class, include the query parameters.
 
 Response:
 
@@ -124,9 +124,9 @@ Response:
 
 Key      | Value
 -------- | --------
-URI      | /api/class/{id}
+URI      | /api/class/
 Method   | PUT
-Note     | Do not follow up with a trailing slash
+Note     | 
 
 This example payload leaves out the `course_id`.
 Payload:
@@ -150,13 +150,26 @@ Response:
 
 Key      | Value
 -------- | --------
-URI      | /api/class/{id}
+URI      | /api/class/
 Method   | DELETE
+
+Request:
+
+    {
+        "data": [
+            {
+                "id": 1
+            },
+            ...
+        ]
+    }   
 
 Response:
 
     {
-        "meta": {},
+        "meta": {
+            "num_deleted": 1
+        },
         "data": {}
     }
 

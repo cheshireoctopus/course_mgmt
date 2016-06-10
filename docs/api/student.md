@@ -84,7 +84,7 @@ Now how the 3rd object has empty attributes. That is because the backend isn't g
 ## Get a Student
 Key      | Value
 -------- | --------
-URI      | /api/student/{id}
+URI      | /api/student/{id}/
 Method   | GET
 Query Params | ?data=class,assignment,attendance
 Note     | Do not follow up with a trailing slash. To optionally include any of the associated Classes, Assignments, or Attendances with this Student, include the query parameters.
@@ -178,7 +178,7 @@ Response:
 
 Key      | Value
 -------- | --------
-URI      | /api/student/{id}
+URI      | /api/student/
 Method   | PUT
 Note     | Do not follow up with a trailing slash
 
@@ -207,14 +207,26 @@ Response:
 
 Key      | Value
 -------- | --------
-URI      | /api/student/{id}
+URI      | /api/student/
 Method   | DELETE
+
+Request:
+
+    {
+        "data": [
+            {
+                "id": 1
+            },
+            ...
+        ]
+    }   
 
 Response:
 
     {
-        "meta": {},
+        "meta": {
+            "num_deleted": 1
+        },
         "data": {}
     }
-
 

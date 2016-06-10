@@ -35,10 +35,10 @@ Response:
 ## Get a Course
 Key      | Value
 -------- | --------
-URI      | /api/course/{id}
+URI      | /api/course/{id}/
 Method   | GET
 Query Params | ?data=homework,lecture,class
-Note     | Do not follow up with a trailing slash. To optionally include the corresponding Classes, Homework, and Lectures for this Course, use the query params as above.
+Note     | To optionally include the corresponding Classes, Homework, and Lectures for this Course, use the query params as above.
 
 Response:
 
@@ -135,11 +135,22 @@ Key      | Value
 URI      | /api/course/
 Method   | DELETE
 
+Request:
+
+    {
+        "data": [
+            {
+                "id": 1
+            },
+            ...
+        ]
+    }   
+
 Response:
 
     {
         "meta": {
-            "num_deleted": 2
+            "num_deleted": 1
         },
         "data": {}
     }

@@ -105,7 +105,7 @@ Also, these have an empty `name` attribute. That is because the backend isn't go
 ## Get a Lecture
 Key      | Value
 -------- | --------
-URI      | /api/lecture/{id}
+URI      | /api/lecture/{id}/
 Method   | GET
 Query Params | ?data=course,class
 Note     | Do not follow up with a trailing slash. To optionally include any of the associated Courses or Classes with this Homework, include the query parameters.
@@ -178,9 +178,8 @@ Response:
 
 Key      | Value
 -------- | --------
-URI      | /api/lecture/{id}
+URI      | /api/lecture/
 Method   | PUT
-Note     | Do not follow up with a trailing slash
 
 
 
@@ -209,13 +208,26 @@ Response:
 
 Key      | Value
 -------- | --------
-URI      | /api/lecture/{id}
+URI      | /api/lecture/
 Method   | DELETE
+
+Request:
+
+    {
+        "data": [
+            {
+                "id": 1
+            },
+            ...
+        ]
+    }   
 
 Response:
 
     {
-        "meta": {},
+        "meta": {
+            "num_deleted": 1
+        },
         "data": {}
     }
 

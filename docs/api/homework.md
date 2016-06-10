@@ -91,7 +91,7 @@ Also, these have an empty `name` attribute. That is because the backend isn't go
 ## Get a Homework
 Key      | Value
 -------- | --------
-URI      | /api/homework/{id}
+URI      | /api/homework/{id}/
 Method   | GET
 Query Params | ?data=course,class
 Note     | Do not follow up with a trailing slash. To optionally include any of the associated Courses or Classes with this Homework, include the query parameters.
@@ -153,13 +153,13 @@ Response:
     }
 
 
-## Update a class
+## Update a Homework
 
 ** NOT IMPLEMENTED **
 
 Key      | Value
 -------- | --------
-URI      | /api/class/{id}
+URI      | /api/homework/
 Method   | PUT
 Note     | Do not follow up with a trailing slash
 
@@ -182,19 +182,30 @@ Response:
         "data": {}
     }
 
-## Delete a class
+## Delete a Homework
 
 ** NOT IMPLEMENTED YET **
 
 Key      | Value
 -------- | --------
-URI      | /api/class/{id}
+URI      | /api/homework/
 Method   | DELETE
+
+Request:
+
+    {
+        "data": [
+            {
+                "id": 1,
+            },
+            ...
+        ]
+    }
 
 Response:
 
     {
-        "meta": {},
+        "meta": {"num_deleted": 1},
         "data": {}
     }
 

@@ -495,7 +495,7 @@ class TestInitializations(unittest.TestCase):
         course_id = get_first_id_from_response(r)
 
         ## Create Class
-        r = create_class(course_id=course_id, start_dt='2016-01-01 00:00:00', end_dt='2016-05-30 00:00:00')
+        r = create_class(course_id=course_id, name="Spring 2015", start_dt='2015-01-01 00:00:00', end_dt='2015-05-30 00:00:00')
         self.assertEquals(r.status_code, 200)
         class_id = get_first_id_from_response(r)
 
@@ -509,7 +509,7 @@ class TestInitializations(unittest.TestCase):
 
         ############
         ## Create Dependent Student and Add to Class
-        r = create_student_dependent(class_id=1, first_name='Inter', last_name='Ference', github_username='interference',
+        r = create_student_dependent(class_id=class_id, first_name='Inter', last_name='Ference', github_username='interference',
                                      email='inter@ference.com', photo_url='http://interference.com/pic.jpg')
         self.assertEquals(r.status_code, 200)
 
@@ -529,7 +529,7 @@ class TestInitializations(unittest.TestCase):
         course_id = get_first_id_from_response(r)
 
         ## Create Class
-        r = create_class(course_id=course_id, start_dt='2016-01-01 00:00:00', end_dt='2016-05-30 00:00:00')
+        r = create_class(course_id=course_id, name="Spring 2016", start_dt='2016-01-01 00:00:00', end_dt='2016-05-30 00:00:00')
         self.assertEquals(r.status_code, 200)
 
         class_id = get_first_id_from_response(r)
@@ -594,7 +594,7 @@ class TestInitializations(unittest.TestCase):
         course_id = get_first_id_from_response(r)
 
         ## Create Class
-        r = create_class(course_id=course_id, start_dt='2016-01-01 00:00:00', end_dt='2016-05-30 00:00:00')
+        r = create_class(course_id=course_id, name="Spring 2016", start_dt='2016-01-01 00:00:00', end_dt='2016-05-30 00:00:00')
         self.assertEquals(r.status_code, 200)
 
         class_id = get_first_id_from_response(r)
@@ -635,7 +635,7 @@ class TestInitializations(unittest.TestCase):
         course_id = get_first_id_from_response(r)
 
         ## Create Class
-        r = create_class(course_id=course_id, start_dt='2016-01-01 00:00:00', end_dt='2016-05-30 00:00:00')
+        r = create_class(course_id=course_id, name="Spring 2016", start_dt='2016-01-01 00:00:00', end_dt='2016-05-30 00:00:00')
         self.assertEquals(r.status_code, 200)
 
         class_id = get_first_id_from_response(r)
@@ -691,7 +691,7 @@ class TestException(unittest.TestCase):
         course_id = get_first_id_from_response(r)
 
         ## Create Class
-        r = create_class(course_id=10, start_dt='2016-01-01 00:00:00', end_dt='2016-05-30 00:00:00')
+        r = create_class(course_id=10, name="Spring 2016", start_dt='2016-01-01 00:00:00', end_dt='2016-05-30 00:00:00')
         self.assertEquals(r.status_code, 400)
 
         j = r.json()

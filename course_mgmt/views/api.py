@@ -1169,16 +1169,15 @@ class LectureView(BaseView):
 
             if 'class_id' in obj:
                 lecture.class_id = obj['class_id']
+                if 'dt' not in obj:
+                        raise UserError("Class Lectures must have a dt attribute")
+                lecture.dt = obj['dt']
 
             if not 'id' in obj:
                 # This is a new Lecture to create
                 keys = self.post_keys[:]
                 # Class Lectures require a dt, whereas Course lectures do not.
                 # ?? Do I need to enforce this?
-                if 'class_id' in obj:
-                    if 'dt' not in obj:
-                        raise UserError("Class Lectures must have a dt attribute")
-                    keys.append('dt')
 
                 json_to_model(model=Lecture, obj=obj, keys=keys, model_inst=lecture)
                 #lecture.name = obj['name']
@@ -1209,6 +1208,8 @@ class LectureView(BaseView):
 
             if hasattr(lecture, 'class_id'):
                 class_lecture = ClassLecture(lecture_id=lecture.id, class_id=lecture.class_id)
+                obj = {'dt': lecture.dt}
+                class_lecture = json_to_model(model=ClassLecture, obj=obj, keys=obj.keys(), model_inst=class_lecture)
                 lecture.class_lecture = class_lecture
                 class_lectures.append(class_lecture)
 
@@ -1379,7 +1380,7 @@ class HomeworkView(BaseView):
             If teacher modifies the Class Homework for the first time
                 A new Homwork is created, containing the same name, content, and etc. as the original Homework.
                     The parent_id of this Homework is set to the id of the original Homework.
-                    The new Homwork's name, content and etc. is set to what the teacher proposes
+                    The new Homwork's name, content and etc. are set to what the teacher proposes
             If teacher modifies a previously modified Class Homework:
                 None of the above happens
                 The modified Homework gets modified again
@@ -1393,6 +1394,50 @@ class HomeworkView(BaseView):
                 Either the ID or the class_lecture_id is passed in?
 
         '''
+
+
+
+
+        ## OK Let's try it this way
+        ## If id AND class_homework_id are present, teacher is changing the class level
+        ## If only ID is present, admin is changing the course level
+
+        data = extract_data()
+        admin_homework_objs = []
+        teacher_homework_objs = []
+
+        for obj in data:
+            if 'class_homework_id' not in obj:
+                admin_homework_objs.append(obj)
+            else:
+                teacher_homework_objs.append(obj)
+
+        # Get all the Homework objs for the teacher homeworks
+        ids = [obj['class_homework_id'] for obj in teacher_homework_objs]
+
+        q = db.session.query(Homework).join(ClassHomework).filter(ClassHomework.id._in(ids))
+        for homework in g:
+            pass
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         data = extract_data()
 
@@ -1409,49 +1454,50 @@ class HomeworkView(BaseView):
             else:
                 raise UserError("expecting either id or class_homework_id - not in {}".format(obj))
 
+        bulk_update(Homework, admin_homework_objs)
+
         # How do we determine if teacher is modifying the homework for the first time or not?
         # I suppose if parent_id is null, then its the first time that it was modified ...
         teacher_class_homework_ids = [obj['class_homework_id'] for obj in teacher_homework_objs.keys()]
+        if teacher_class_homework_ids:
+            # Query all the Homeworks on these class homework ids
+            homeworks = db.session.query(Homework, ClassHomework).join(ClassHomework).filter(ClassHomework.id.in_(teacher_class_homework_ids))
 
-        # Query all the Homeworks on these class homework ids
-        homeworks = db.session.query(Homework, ClassHomework).join(ClassHomework).filter(ClassHomework.id.in_(teacher_class_homework_ids))
+            # These two arrays will have corresponding indexes for the Homework- ClassHomework joined on OLD homework.id
+            teacher_homeworks = []
+            teacher_class_homeworks = []
 
-        # These two arrays will have corresponding indexes for the Homework -- ClassHomework joined on OLD homework.id
-        teacher_homeworks = []
-        teacher_class_homeworks = []
+            for homework, class_homework in homeworks:
+                new_homework_obj = teacher_homework_objs[class_homework.id]
 
-        for homework, class_homework in homeworks:
-            new_homework_obj = teacher_homework_objs[class_homework.id]
+                if homework.parent_id is None:
+                    # Teacher is modifying a homework for the first time
+                    parent_id = homework.id
+                    # Clone the homeworks
+                    db.session.expunge(homework)
+                    make_transient(homework)
+                    # Set clone'd homework's parent Id to originals
+                    homework.id = None
+                    homework.parent_id = parent_id
 
-            if homework.parent_id is None:
-                # Teacher is modifying a homework for the first time
-                parent_id = homework.id
-                # Clone the homeworks
-                db.session.expunge(homework)
-                make_transient(homework)
-                # Set clone'd homework's parent Id to originals
-                homework.id = None
-                homework.parent_id = parent_id
-                # Modify the clone is necessary
+                    teacher_homeworks.append(homework)
+                    teacher_class_homeworks.append(class_homework)
 
-            homework.name = new_homework_obj['name']
+                homework.name = new_homework_obj['name']
 
-            # Keep track of the homework and class_homework
-            teacher_homeworks.append(homework)
-            teacher_class_homeworks.append(class_homework)
+                # Keep track of the homework and class_homework
 
-            # Teacher is modifying a previously modified homework
-            homework.name = new_homework_obj['name']
 
-        db.session.bulk_save_objects(teacher_homeworks, return_defaults=True)
 
-        count = 0
-        for homework in teacher_homeworks:
-            class_homework = teacher_class_homeworks[count]
-            class_homework.homework_id = homework.id
-            count += 1
+            db.session.bulk_save_objects(teacher_homeworks, return_defaults=True)
 
-        bulk_update(Homework, admin_homework_objs)
+            count = 0
+            for homework in teacher_homeworks:
+                class_homework = teacher_class_homeworks[count]
+                class_homework.homework_id = homework.id
+                count += 1
+
+
 
         #db.session.bulk_save_objects(teacher_class_homeworks)
 
@@ -1616,6 +1662,111 @@ class HomeworkView(BaseView):
 
         return jsonify({"meta": {"len": len(homeworks)}, "data": rets}), 200
 
+
+class AssignmentView(BaseView):
+    model = Assignment
+    post_keys = ['class_student_id', 'class_homework_id', 'did_complete']
+    @try_except
+    def index(self):
+        class_homework_id, class_student_id, class_id, student_id = parse_id_from_query_args(
+            ['class_homework_id', 'class_student_id', 'class_id', 'student_id']
+        )
+
+        # Should I just put this logic in parse_id_from_query_args
+        if sum([class_homework_id, class_student_id, class_id, student_id]) not in [class_homework_id, class_student_id,
+                                                                                    class_id, student_id]:
+            raise UserError("Only one of class_homework_id, class_student_id, class_id, or student_id can be filtered")
+
+        rets = []
+
+        q = db.session.query(Homework, Assignment, Student, Class)
+        q = q.join(ClassHomework).join(Assignment).join(ClassStudent).join(Student).join(Class, ClassStudent.class_id==Class.id)
+
+        if class_homework_id:
+            q = q.filter(ClassHomework.id == class_homework_id)
+
+        elif class_student_id:
+            q = q.filter(ClassStudent.id == class_student_id)
+
+        elif class_id:
+            # Get the Class as well
+            q = q.filter(Class.id == class_id)
+
+        elif student_id:
+            q = q.filter(Student.id == student_id)
+
+        for homework, assignment, student, clazz in q:
+                obj = assignment.json
+                obj['homework'] = homework.json
+                obj['student'] = student.json
+                obj['class'] = clazz.json
+
+                rets.append(obj)
+
+        return jsonify({"meta": {"len": len(rets)}, "data": rets}), 200
+
+    ## I dont see a need for a custom get(/id/) for Assignment
+    # The teacher will go to Course, then to ClassHomework, then query /assigntment/?class_homework_id=1
+
+    @try_except
+    def post(self):
+        raise UserError("Assignment creation is not supported. Create a Homework and add to a Class to instantiate an Assignment")
+
+    @try_except
+    def delete(self):
+        raise UserError("Assignments cannot be deleted this way. Either delete the student or delete the ClassHomework")
+
+
+class AttendanceView(BaseView):
+    model = Attendance
+    post_keys = ['class_lecture_id', 'class_student_id', 'did_attend']
+
+    @try_except
+    def index(self):
+        class_lecture_id, class_student_id, class_id, student_id = parse_id_from_query_args(
+            ['class_lecture_id', 'class_student_id', 'class_id', 'student_id']
+        )
+
+        # Should I just put this logic in parse_id_from_query_args ?
+        if sum([class_lecture_id, class_student_id, class_id, student_id]) not in [class_lecture_id, class_student_id,
+                                                                                     class_id, student_id]:
+            raise UserError("Only one of class_lecture_id, class_student_id, class_id, or student_id can be used to filter")
+
+        rets = []
+
+        q = db.session.query(Lecture, Attendance, Student, Class)
+        q = q.join(ClassLecture).join(Attendance).join(ClassStudent).join(Student).join(Class, ClassStudent.class_id == Class.id)
+
+        if class_lecture_id:
+            q = q.filter(ClassLecture.id == class_lecture_id)
+
+        elif class_student_id:
+            q = q.filter(ClassStudent.id == class_student_id)
+
+        elif class_id:
+            q = q.filter(Class.id == class_id)
+
+        elif student_id:
+            q = q.filter(Student.id == student_id)
+
+        for lecture, attendance, student, clazz in q:
+            obj = attendance.json
+            obj['lecture'] = lecture.json
+            obj['student'] = student.json
+            obj['class'] = clazz.json
+
+            rets.append(obj)
+
+        return jsonify({"meta": {"len": len(rets)}, "data": rets})
+
+    @try_except
+    def post(self):
+        raise UserError("Attendance creation is not supported. Create a Lecture and add to a Class to instantiate an Attendance")
+
+    @try_except
+    def delete(self):
+        raise UserError("Attendances cannot be deleted this way. Either delete the student or delete the ClassHomework")
+
 '''
 class AttendanceView(BaseView):
     model = Attendance
@@ -1626,6 +1777,6 @@ class AssignmentView(BaseView):
     post_keys = ['class_student_id', 'course_homework_id', 'is_completed']
 '''
 
-views = [CourseView, ClassView, StudentView, LectureView, HomeworkView]
+views = [CourseView, ClassView, StudentView, LectureView, HomeworkView, AssignmentView, AttendanceView]
 for view in views:
     view.register(app, route_prefix='/api/', trailing_slash=True)
