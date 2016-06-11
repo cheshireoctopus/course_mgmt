@@ -64,6 +64,16 @@ def extract_form(form, keys=None):
     return tuple(ret)
 
 
+def extract_data():
+    if not request.json:
+        raise UserError("Set Content-Type: application/json")
+    try:
+        data = request.json['data']
+    except KeyError as ex:
+        raise UserError("Data attribute is required in request")
+
+    return data
+
 def parse_data_from_query_args(keys):
     '''
     Utility function to extract query args and return boolean values
@@ -95,7 +105,7 @@ def parse_id_from_query_args(keys):
             try:
                 val = int(v)
             except ValueError:
-                raise UserError("id must be int, not {}".format(v))
+                raise UserError("id must be int, not '{}'".format(v))
             ret[k] = val
 
     return tuple(ret[key] for key in keys)
@@ -159,15 +169,44 @@ def try_except(func):
 
 
 def json_to_model(model, obj, keys, model_inst=None):
+    '''
+    This converts a dict to a new model with the given keys.
+    If model_inst is provided, this will mutate the model_inst instead of creating a new model.
+
+    :param model: a Model class
+    :param obj: a dict of keys and values to populate the model class
+    :param keys: The expected keys to populate the model with -- all keys must be present in the obj
+    :param model_inst: Optionally a previously instantiated model object to mutate
+    :return: an instance of the model
+    '''
     kwargs = {}
+
     for key in keys:
-        if isinstance(getattr(model, key).type, DateTime):
-            kwargs[key] = datetime.strptime(obj[key], date_format)
+        # All keys should be present in obj
+        try:
+            value = obj[key]
+        except KeyError:
+            raise UserError("Expecting these attributes: {}".format(keys))
+
+        try:
+            column_type = getattr(model, key).type
+        except AttributeError as ex:
+            raise ServerError(ex.message)
+
+        if isinstance(column_type, DateTime):
+            try:
+                kwargs[key] = datetime.strptime(value, date_format)
+            except ValueError as ex:
+                raise UserError("Bad date format: {}".format(ex.message))
+
         else:
-            kwargs[key] = obj[key]
+            kwargs[key] = value
+
     if not model_inst:
+        # Create a new model and return it
         model_inst = model(**kwargs)
     else:
+        # Change the attributes
         for key in keys:
             setattr(model_inst, key, kwargs[key])
 
@@ -264,15 +303,7 @@ def drop_db():
     return jsonify({}), 200
 
 
-def extract_data():
-    if not request.json:
-        raise UserError("Set Content-Type: application/json")
-    try:
-        data = request.json['data']
-    except KeyError as ex:
-        raise UserError("Data attribute is required in request")
 
-    return data
 
 class BaseView(FlaskView):
     trailing_slash = True
@@ -1070,9 +1101,6 @@ class StudentView(BaseView):
 
         return jsonify({"meta": {"len": len(ret)}, "data": ret})
 
-    @route('/wtfyo/')
-    def wtf(self):
-        return 'wtf d'
 
 
 class LectureView(BaseView):

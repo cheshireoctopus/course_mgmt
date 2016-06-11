@@ -1,10 +1,10 @@
 __author__ = 'mmoisen'
-
+from flask import Flask
 from course_mgmt.models import *  # db, all_models
 import unittest
 import requests
-
-
+from course_mgmt.views.api import extract_data, parse_data_from_query_args, parse_id_from_query_args, json_to_model
+import json
 URL = 'http://localhost:5000'
 
 class SqliteSequence(db.Model):
@@ -803,6 +803,179 @@ class TestException(unittest.TestCase):
         self.assertEquals(j['error'], "(sqlite3.IntegrityError) foreign key constraint failed")
 
 
+class TestParseDataFromQueryArgs(unittest.TestCase):
+
+    def setUp(self):
+        self.app = Flask(__name__)
+
+    def test_happy(self):
+
+        with self.app.test_request_context('?data=foo,bar,baz'):
+            foo, bar, baz, hai = parse_data_from_query_args(['foo','bar','baz', 'hai'])
+
+            self.assertEquals(foo, True)
+            self.assertEquals(bar, True)
+            self.assertEquals(baz, True)
+            self.assertEquals(hai, False)
+
+    def test_happy_trailing_comma(self):
+
+        with self.app.test_request_context('?data=foo,bar,baz,'):
+            foo, bar, baz, hai = parse_data_from_query_args(['foo','bar','baz', 'hai'])
+
+            self.assertEquals(foo, True)
+            self.assertEquals(bar, True)
+            self.assertEquals(baz, True)
+            self.assertEquals(hai, False)
+
+    def test_happy_no_data(self):
+        with self.app.test_request_context():
+            foo, bar = parse_data_from_query_args(['foo','bar'])
+
+            self.assertEquals(foo, False)
+            self.assertEquals(bar, False)
+
+    def test_differing_server_keys(self):
+        with self.app.test_request_context('?data=foo,bar'):
+            hai, bai = parse_data_from_query_args(['hai', 'bai'])
+
+            self.assertEquals(hai, False)
+            self.assertEquals(bai, False)
+
+class TestParseIdFromQueryArgs(unittest.TestCase):
+    def setUp(self):
+        self.app = Flask(__name__)
+
+
+    def test_happy(self):
+        with self.app.test_request_context('?course_id=2&class_id=5'):
+            course_id, class_id = parse_id_from_query_args(['course_id', 'class_id'])
+
+            self.assertEquals(course_id, 2)
+            self.assertEquals(class_id, 5)
+
+    def test_differing_server_keys(self):
+        with self.app.test_request_context('?course_id=2&class_id=5'):
+            student_id, lecture_id = parse_id_from_query_args(['student_id', 'lecture_id'])
+
+            self.assertEquals(student_id, False)
+            self.assertEquals(lecture_id, False)
+
+    def test_bad_int(self):
+        with self.app.test_request_context('?foo=bar'):
+            self.assertRaises(UserError, parse_id_from_query_args, ['foo'])
+            try:
+                parse_id_from_query_args(['foo'])
+            except UserError as ex:
+                self.assertEquals(ex.message, "id must be int, not 'bar'")
+
+
+class TestExtractData(unittest.TestCase):
+    def setUp(self):
+        self.app = Flask(__name__)
+        self.data = json.dumps({
+            "data": {
+                "foo": "bar"
+            }
+        })
+        self.headers = {
+            'Content-Type': 'application/json'
+        }
+
+    def test_happy(self):
+        with self.app.test_request_context(headers=self.headers, data=self.data):
+            data = extract_data()
+            self.assertEquals(data, {'foo': 'bar'})
+
+    def test_no_json_header(self):
+        with self.app.test_request_context(data=self.data):
+            self.assertRaises(UserError, extract_data)
+
+            try:
+                extract_data()
+            except UserError as ex:
+                self.assertEquals(ex.message, "Set Content-Type: application/json")
+
+    def test_no_data_attribute(self):
+        data = json.dumps({'foo': 'bar'})
+        with self.app.test_request_context(headers=self.headers, data=data):
+            self.assertRaises(UserError, extract_data)
+
+            try:
+                extract_data()
+            except UserError as ex:
+                self.assertEquals(ex.message, "Data attribute is required in request")
+
+class TestJsonToModel(unittest.TestCase):
+    def setUp(self):
+        self.model = Class
+        self.obj = {
+            'course_id': 1,
+            'id': 2,
+            'name': 'Test',
+            'start_dt': '2016-01-01 00:00:00'
+        }
+        self.keys = ['course_id', 'id', 'name', 'start_dt']
+
+    def test_happy(self):
+
+
+        model_inst = json_to_model(model=self.model, obj=self.obj, keys=self.keys)
+
+        self.assertEquals(model_inst.course_id, 1)
+        self.assertEquals(model_inst.id, 2)
+        self.assertEquals(model_inst.name, 'Test')
+        self.assertEquals(model_inst.start_dt, datetime.strptime('2016-01-01 00:00:00', date_format))
+
+    def test_happy_model_inst(self):
+        '''
+        The model_inst arg on json_to_model should allow a reference to a model be mutated successfully
+        '''
+
+        model_inst = Class(course_id=10, id=20, name='Foo', start_dt=datetime.now())
+
+        json_to_model(model=self.model, obj=self.obj, keys=self.keys, model_inst=model_inst)
+
+        self.assertEquals(model_inst.course_id, 1)
+        self.assertEquals(model_inst.id, 2)
+        self.assertEquals(model_inst.name, 'Test')
+        self.assertEquals(model_inst.start_dt, datetime.strptime('2016-01-01 00:00:00', date_format))
+
+    def test_key_not_in_obj(self):
+        self.keys.append('foo')
+
+        self.assertRaises(UserError, json_to_model, model=self.model, obj=self.obj, keys=self.keys)
+
+        try:
+            json_to_model(model=self.model, obj=self.obj, keys=self.keys)
+        except UserError as ex:
+            self.assertEquals(ex.message, "Expecting these attributes: {}".format(self.keys))
+
+    def test_bad_date_format(self):
+        self.obj['start_dt'] = '2016-01-01'
+
+        self.assertRaises(UserError, json_to_model, model=self.model, obj=self.obj, keys=self.keys)
+
+        try:
+            json_to_model(model=self.model, obj=self.obj, keys=self.keys)
+        except UserError as ex:
+            self.assertEquals(ex.message, "Bad date format: time data '2016-01-01' does not match format '%Y-%m-%d %H:%M:%S'")
+
+    def test_key_not_in_model(self):
+        self.obj['foo'] = 'bar'
+        self.keys.append('foo')
+
+        self.assertRaises(ServerError, json_to_model, model=self.model, obj=self.obj, keys=self.keys)
+
+        try:
+            json_to_model(model=self.model, obj=self.obj, keys=self.keys)
+        except ServerError as ex:
+            self.assertEquals(ex.message, "type object 'Class' has no attribute 'foo'")
+
+
+
 if __name__ == '__main__':
     import nose
     nose.run()
+
+
