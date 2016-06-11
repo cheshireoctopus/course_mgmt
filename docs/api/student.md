@@ -87,7 +87,7 @@ Key      | Value
 URI      | /api/student/{id}/
 Method   | GET
 Query Params | ?data=class,assignment,attendance
-Note     | Do not follow up with a trailing slash. To optionally include any of the associated Classes, Assignments, or Attendances with this Student, include the query parameters.
+Note     | To optionally include any of the associated Classes, Assignments, or Attendances with this Student, include the query parameters.
 
 Response:
 
@@ -180,7 +180,6 @@ Key      | Value
 -------- | --------
 URI      | /api/student/
 Method   | PUT
-Note     | Do not follow up with a trailing slash
 
 This example payload leaves out the `course_id`.
 Payload:

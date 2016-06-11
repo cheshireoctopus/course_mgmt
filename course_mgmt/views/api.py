@@ -221,15 +221,12 @@ def bulk_update(model, data):
     for obj in data:
         kwargs = {}
         for key in obj:
-            app.logger.debug("key is {} is it date {}".format(key, isinstance(getattr(model, key).type, Date)))
             if isinstance(getattr(model, key).type, DateTime):
                 kwargs[key] = datetime.strptime(obj[key], date_format)
             else:
                 kwargs[key] = obj[key]
 
             objs.append(kwargs)
-
-    app.logger.debug("objs are {}".format(objs))
 
     try:
         db.session.bulk_update_mappings(model, objs)
@@ -1393,113 +1390,111 @@ class HomeworkView(BaseView):
             Teacher changes a previously changed class level instance homework
                 Either the ID or the class_lecture_id is passed in?
 
+
+        So Request could look like this:
+
+        {
+            "data": [
+                {
+                    "class_homework_id": 1,
+                    "name": "my new name"
+                },
+                {
+                    "id": 1,
+                    "name": "my newer name"
+                }
+            ]
+        }
+
         '''
 
-
-
-
-        ## OK Let's try it this way
-        ## If id AND class_homework_id are present, teacher is changing the class level
-        ## If only ID is present, admin is changing the course level
-
-        data = extract_data()
-        admin_homework_objs = []
-        teacher_homework_objs = []
-
-        for obj in data:
-            if 'class_homework_id' not in obj:
-                admin_homework_objs.append(obj)
-            else:
-                teacher_homework_objs.append(obj)
-
-        # Get all the Homework objs for the teacher homeworks
-        ids = [obj['class_homework_id'] for obj in teacher_homework_objs]
-
-        q = db.session.query(Homework).join(ClassHomework).filter(ClassHomework.id._in(ids))
-        for homework in g:
-            pass
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        # We will be returning data to user at the end of this to maintain the order
+        # We will be moving the object references into teacher_homework_objs and admin_homework_objs
+        #   and manipulating them elsewhere, such that when we return data it will contain the newly mutated attributes
         data = extract_data()
 
-        admin_homework_objs = []
+        # Why is this a dict? Because we are querying Homework where ClassHomework.id IN a list of ids,
+        #   we need a way to look up the original object quickly
         teacher_homework_objs = {}
+        admin_homework_objs = []
 
+        # Determine whether or not the obj is a teacher homework or a admin homework
         for obj in data:
-            if 'id' in obj:
-                # Admin is modifying Course Homework
-                admin_homework_objs.append(obj)
-            elif 'class_homework_id' in obj:
-                # Teacher is modifying Class Homework
-                teacher_homework_objs[obj['class_homework_id']] = obj
-            else:
-                raise UserError("expecting either id or class_homework_id - not in {}".format(obj))
+            if 'id' in obj and 'class_homework_id' in obj:
+                raise UserError("Only either id or class_homework_id is accepted, not both")
 
+            elif 'class_homework_id' in obj:
+                teacher_homework_objs[obj['class_homework_id']] = obj
+
+            elif 'id' in obj:
+                admin_homework_objs.append(obj)
+
+            else:
+                raise UserError("Either id or class_homework_id is required")
+
+        app.logger.debug('teacher_homework_objs is {}'.format(teacher_homework_objs))
+        app.logger.debug('\nadmin_homework_objs is {}'.format(admin_homework_objs))
+
+        # Save admin homeworks first
         bulk_update(Homework, admin_homework_objs)
 
-        # How do we determine if teacher is modifying the homework for the first time or not?
-        # I suppose if parent_id is null, then its the first time that it was modified ...
-        teacher_class_homework_ids = [obj['class_homework_id'] for obj in teacher_homework_objs.keys()]
-        if teacher_class_homework_ids:
-            # Query all the Homeworks on these class homework ids
-            homeworks = db.session.query(Homework, ClassHomework).join(ClassHomework).filter(ClassHomework.id.in_(teacher_class_homework_ids))
+        if not teacher_homework_objs:
+            db.session.commit()
+            app.logger.debug("No teacher homework objs, returning")
+            return jsonify({"meta": len(data), "data": data}), 200
 
-            # These two arrays will have corresponding indexes for the Homework- ClassHomework joined on OLD homework.id
-            teacher_homeworks = []
-            teacher_class_homeworks = []
+        # Take care of teacher homeworks now
+        teacher_homeworks = []
 
-            for homework, class_homework in homeworks:
-                new_homework_obj = teacher_homework_objs[class_homework.id]
+        # Old teacher homeworks are class homeworks that have already been modified once.
+        # This is used to perform an update instead of an insert
+        old_teacher_homeworks = []
+        # Find the corresponding homework for each ClassHomework
+        q = db.session.query(Homework, ClassHomework).join(ClassHomework).filter(ClassHomework.id.in_(teacher_homework_objs.keys()))
+        for homework, class_homework in q:
+            # TODO Take into account whether or not this is the first change or not
 
-                if homework.parent_id is None:
-                    # Teacher is modifying a homework for the first time
-                    parent_id = homework.id
-                    # Clone the homeworks
-                    db.session.expunge(homework)
-                    make_transient(homework)
-                    # Set clone'd homework's parent Id to originals
-                    homework.id = None
-                    homework.parent_id = parent_id
+            # Use the dict for fast access
+            new_homework_obj = teacher_homework_objs[class_homework.id]
 
-                    teacher_homeworks.append(homework)
-                    teacher_class_homeworks.append(class_homework)
+            # Add a reference to the homework for use in next loop
+            new_homework_obj['homework'] = homework
 
+            # Clone the homework
+            db.session.expunge(homework)
+            make_transient(homework)
+
+            # Get rid of the homework id so that it will insert in bulk_save_objects
+            parent_id = homework.id
+            homework.id = None
+            homework.parent_id = parent_id
+
+            # Make the updates here
+            if 'name' in new_homework_obj:
                 homework.name = new_homework_obj['name']
 
-                # Keep track of the homework and class_homework
+            teacher_homeworks.append(homework)
 
+        # Save the new homeworks and get their IDs because we need to update the ClassHomeworks with them
+        db.session.bulk_save_objects(teacher_homeworks, return_defaults=True)
 
+        class_homeworks = []
+        for homework_obj in teacher_homework_objs.values():
+            # Set the id on homework_obj, the reference of which is still in data, which will be returned in order
+            homework_obj['id'] = homework_obj['homework'].id
+            del homework_obj['homework']
+            obj = {
+                'id': homework_obj['class_homework_id'],
+                'homework_id': homework_obj['homework_id']
+            }
+            class_homeworks.append(obj)
 
-            db.session.bulk_save_objects(teacher_homeworks, return_defaults=True)
+        bulk_update(ClassHomework, class_homeworks)
 
-            count = 0
-            for homework in teacher_homeworks:
-                class_homework = teacher_class_homeworks[count]
-                class_homework.homework_id = homework.id
-                count += 1
+        db.session.commit()
 
+        return jsonify({"meta": len(data), "data": data}), 200
 
-
-        #db.session.bulk_save_objects(teacher_class_homeworks)
 
 
     @try_except

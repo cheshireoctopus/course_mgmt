@@ -108,7 +108,7 @@ Key      | Value
 URI      | /api/lecture/{id}/
 Method   | GET
 Query Params | ?data=course,class
-Note     | Do not follow up with a trailing slash. To optionally include any of the associated Courses or Classes with this Homework, include the query parameters.
+Note     | To optionally include any of the associated Courses or Classes with this Homework, include the query parameters.
 
 If you include `?data=class`, the objects in the `classes` dict will contain a `dt` attribute from the ClassLecture. Don't confuse this with the Class's `start_time` and `end_time`.
 

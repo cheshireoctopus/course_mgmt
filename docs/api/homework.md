@@ -94,7 +94,7 @@ Key      | Value
 URI      | /api/homework/{id}/
 Method   | GET
 Query Params | ?data=course,class
-Note     | Do not follow up with a trailing slash. To optionally include any of the associated Courses or Classes with this Homework, include the query parameters.
+Note     | To optionally include any of the associated Courses or Classes with this Homework, include the query parameters.
 
 Response:
 
@@ -155,31 +155,72 @@ Response:
 
 ## Update a Homework
 
-** NOT IMPLEMENTED **
+** TENTATIVELY IMPLEMENTED - PLEASE READ **
 
 Key      | Value
 -------- | --------
 URI      | /api/homework/
 Method   | PUT
-Note     | Do not follow up with a trailing slash
 
-This example payload leaves out the `course_id`.
-Payload:
+This is somewhat hardcore, is the tentative design, and is subject to change.
+
+Remember that a Homework can be associated at the Course level and the Class level. There are two cases:
+
+Case | Description
+-----|------------
+1    | An admin ought to be able to alter the Homework at the Course level and have that propagate down to all Classes.
+2    | A teacher on the other hand ought to be able tl alter the Homework just for one particular class.
+
+The goal of this API design is to accommodate both.
+
+A quick note on Case 2: When a teacher "updates a Class level Homework", what actually happens in the backend is the following:
+
+1. A new Homework is created with all the same attributes as the Parent Homework
+2. The new Homework's attributes are updated with whatever values are PUT in the object
+3. The Class Homework associated to the old Homework is then associated with the new Homework
+
+When the front end wants to update a Course level Homework (Case 1), the object passed in should contain the `id` of the Homework object and the Homework related attributes to change. It should NOT contain a `class_homework_id`.
+When the front end wants to update a Class level Homework (Case 2), the object passed in should contain the `class_homework_id` of the ClassHomework object and the Homework related attributes to change. It should NOT contain a `id`
+
+I think these two rules will be most subject to change. Perhaps it would make more sense in case 1 to name id `homework_id` or even `course_homework_id` and to prevent the use of `id` all together to avoid any confusion.
+
+In the following example, the `data` array contains a Course level Homework (Case 1) to change and a Class level Homework (Case 2) to change, in that order
+
+Request:
 
     {
         "data": [
             {
                 "id": 1,
                 "name": "Why Java > Python LOL JK"
+            },{
+                "class_homework_id": 1,
+                "name": "Why Python > Java"
             }
         ]
     }
 
+Note that the response is much different than PUTs on other models. Because in the Case 2 (Class level Homework change) update, we actually insert a new Homework object and then
+mutate the ClassHomework's `homework_id` to the new Homework's `id`, this should be passed back to the front end. Note how the second object in this response has an `id`-- this
+is the new Homework's `id`. The front end should update this.
+
 Response:
 
     {
-        "meta": {},
-        "data": {}
+        "meta": {
+            "len": 2
+        },
+        "data": [
+            {
+                "id": 1,
+                "name": "Why Java > Python LOL JK"
+            },
+            {
+                "class_homework_id": 1,
+                "id": 4,
+                "name": "Why Python > Java"
+            }
+        ]
     }
 
 ## Delete a Homework
