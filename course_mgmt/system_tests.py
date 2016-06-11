@@ -1,8 +1,9 @@
 __author__ = 'mmoisen'
 
-from course_mgmt.models import db, all_models
+from course_mgmt.models import *  # db, all_models
 import unittest
 import requests
+
 
 URL = 'http://localhost:5000'
 
@@ -11,7 +12,7 @@ class SqliteSequence(db.Model):
     name = db.Column(db.String, primary_key=True)
     seq = db.Column(db.Integer)
 
-def get_first_id_from_response(r):
+def get_first_id_from_response(r, id_key='id'):
     '''
     Utility method to pull the first ID from a response object
     Remember responses look like this:
@@ -24,7 +25,7 @@ def get_first_id_from_response(r):
     :param r: response object from requests
     :return: id
     '''
-    return r.json()['data'][0]['id']
+    return r.json()['data'][0][id_key]
 
 def hit_api(api, data=None, params=None, method='POST'):
     '''
@@ -253,6 +254,20 @@ def create_homework_dependent(course_id, name):
 
     return hit_api(api, data, method=method)
 
+def create_class_homework(class_id, name):
+    api = '/api/homework/'
+    method = 'POST'
+    data = {
+        'data': [
+            {
+                'class_id': class_id,
+                'name': name
+            }
+        ]
+    }
+
+    return hit_api(api, data, method=method)
+
 def create_student_independent(first_name, last_name, github_username, email, photo_url):
     api = '/api/student/'
     method = 'POST'
@@ -473,56 +488,127 @@ class TestAll(unittest.TestCase):
         class_student_id_2 = get_first_id_from_response(r)
 
 
+def create_interference():
+    '''
+    Create a completely different course/class/lecture/homework/student to see if it interferes
+    '''
+
+    course = Course(name='Interference Course')
+    db.session.add(course)
+    db.session.flush()
+
+    lecture = Lecture(name='Interference Lecture', description='The first interference')
+    db.session.add(lecture)
+    db.session.flush()
+
+    course_lecture = CourseLecture(course_id=course.id, lecture_id=lecture.id)
+    db.session.add(course_lecture)
+
+    homework = Homework(name='Interference Hmk')
+    db.session.add(homework)
+    db.session.flush()
+
+    course_homework = CourseHomework(course_id=course.id, homework_id=homework.id)
+    db.session.add(course_homework)
+
+    clazz = Class(course_id=course.id, name='Spring 2015', start_dt=datetime.now(), end_dt=datetime.now())
+    db.session.add(clazz)
+    db.session.flush()
+
+    class_homework = ClassHomework(class_id=clazz.id, homework_id=homework.id)
+    db.session.add(class_homework)
+    db.session.flush()
+
+    class_lecture = ClassLecture(class_id=clazz.id, lecture_id=lecture.id, dt=datetime.now())
+    db.session.add(class_lecture)
+    db.session.flush()
+
+    student = Student(first_name='Inter', last_name='Ference', github_username='interference',
+                                 email='inter@ference.com', photo_url='http://interference.com/pic.jpg')
+    db.session.add(student)
+    db.session.flush()
+
+    class_student = ClassStudent(class_id=clazz.id, student_id=student.id)
+    db.session.add(class_student)
+    db.session.flush()
+
+    attendance = Attendance(class_student_id=class_student.id, class_lecture_id=class_lecture.id)
+    db.session.add(attendance)
+
+    assignment = Assignment(class_student_id=class_student.id, class_homework_id=class_homework.id)
+    db.session.add(assignment)
+    db.session.commit()
+
 class TestInitializations(unittest.TestCase):
     '''
     When a new Student is added to a Class, all Assignments and Attendance should be initialized for him
 
-    When a new CourseHomework is added, Assignments should be initialized for all Students
+    When a new Homework is added to a Class, Assignments should be initialized for all Students
 
-    When a new Lecture is added, Attendances should be initialized for all Students
+    When a new Lecture is added to a Class, Attendances should be initialized for all Students
+
+    I need to instantiate for when a PUT occurs on a Class Lecture/ClassHomework ...
     '''
     def setUp(self):
         # Drop and recreate the database
         self.assertEquals(200, drop_and_create_db().status_code)
+        create_interference()
 
-        '''
-        Create a completely different course/class/lecture/homework/student to see if it interferes
-        '''
 
-        # Course
-        r = create_course(name='Interference Course')
-        self.assertEquals(r.status_code, 200)
-        course_id = get_first_id_from_response(r)
-
-        ## Create Class
-        r = create_class(course_id=course_id, name="Spring 2015", start_dt='2015-01-01 00:00:00', end_dt='2015-05-30 00:00:00')
-        self.assertEquals(r.status_code, 200)
-        class_id = get_first_id_from_response(r)
-
-        ## Create Lecture
-        r = create_class_lecture(class_id=class_id, name='Interference Lecture', description='The first interference', dt='2016-01-01 00:00:00')
-        self.assertEquals(r.status_code, 200)
-
-        ## Create Dependent Homework and Add to Course Synchronously
-        r = create_homework_dependent(course_id=course_id, name='Interference Homework 2')
-        self.assertEquals(r.status_code, 200)
-
-        ############
-        ## Create Dependent Student and Add to Class
-        r = create_student_dependent(class_id=class_id, first_name='Inter', last_name='Ference', github_username='interference',
-                                     email='inter@ference.com', photo_url='http://interference.com/pic.jpg')
-        self.assertEquals(r.status_code, 200)
-
-    def _read_attendance_by_lecture(self, lecture_id):
-        api = '/api/lecture/{}/attendance/'.format(lecture_id)
-        return hit_api(api, method='GET')
-
-    def _read_assignment(self, class_id, course_homework_id):
-        api = '/api/class/{}/assignment'.format(class_id)
-        params = {'course_homework_id': course_homework_id}
+    def _read_attendance_by_class_lecture(self, class_lecture_id):
+        api = '/api/attendance/'
+        params = {'class_lecture_id': class_lecture_id}
         return hit_api(api, method='GET', params=params)
 
+    def _read_assignment_by_class_homework(self, class_homework_id):
+        api = '/api/assignment/'
+        params = {'class_homework_id': class_homework_id}
+        return hit_api(api, method='GET', params=params)
+
+    def assert_instantiated_attendance(self, attendance, class_lecture_id, class_student_id, class_id, lecture_id,
+                                       student_id):
+        '''
+        This proves that the attendance has been instantiated in either of these two cases:
+            Create Class, create Lecture on Class, create Student on Class
+            Create Class, create Student on Class, create Lecture on Class
+        :param attendance:
+        :param class_lecture_id:
+        :param class_student_id:
+        :param class_id:
+        :param lecture_id:
+        :param student_id:
+        :return:
+        '''
+
+        self.assertEquals(attendance['class_lecture_id'], class_lecture_id)
+        self.assertEquals(attendance['class_student_id'], class_student_id)
+        # attendance defaults to False
+        self.assertEquals(attendance['did_attend'], False)
+        self.assertEquals(attendance['class']['id'], class_id)
+        self.assertEquals(attendance['class']['name'], "Spring 2016")
+        self.assertEquals(attendance['lecture']['id'], lecture_id)
+        self.assertEquals(attendance['lecture']['name'], 'Lecture 1')
+        self.assertEquals(attendance['student']['id'], student_id)
+        self.assertEquals(attendance['student']['first_name'], 'Chandler')
+
+    def assert_instantiated_assignment(self, assignment, class_homework_id, class_student_id, class_id, homework_id,
+                                       student_id):
+
+        self.assertEquals(assignment['class_homework_id'], class_homework_id)
+        self.assertEquals(assignment['class_student_id'], class_student_id)
+        self.assertEquals(assignment['class']['id'], class_id)
+        self.assertEquals(assignment['class']['name'], "Spring 2016")
+        self.assertEquals(assignment['homework']['id'], homework_id)
+        self.assertEquals(assignment['homework']['name'], 'Homework 1')
+        self.assertEquals(assignment['student']['id'], student_id)
+        self.assertEquals(assignment['student']['first_name'], 'Chandler')
+
     def test_add_student(self):
+        '''
+        This creates a Course, a Class, a Homework on Class, a Homework on Class, and then a Student on Class
+            in that order.
+        Creating the student on class should instantiate the Assignments and Attendances.
+        '''
         r = create_course(name='Matthew''s Course')
         self.assertEquals(r.status_code, 200)
 
@@ -534,16 +620,19 @@ class TestInitializations(unittest.TestCase):
 
         class_id = get_first_id_from_response(r)
 
-        ## Create Lecture
+        ## Create Lecture and Add to Class Synchronously
         r = create_class_lecture(class_id=class_id, name='Lecture 1', description='The first lecturel', dt='2016-01-01 00:00:00')
         self.assertEquals(r.status_code, 200)
 
         lecture_id = get_first_id_from_response(r)
+        class_lecture_id = get_first_id_from_response(r, id_key='class_lecture_id')
 
-        ## Create Dependent Homework and Add to Course Synchronously
-        r = create_homework_dependent(course_id=course_id, name='Homework 1')
+
+        ## Create Dependent Homework and Add to Class Synchronously
+        r = create_class_homework(class_id=class_id, name='Homework 1')
         self.assertEquals(r.status_code, 200)
-        course_homework_id = get_first_id_from_response(r)
+        homework_id = get_first_id_from_response(r)
+        class_homework_id = get_first_id_from_response(r, id_key='class_homework_id')
 
 
         ############
@@ -552,13 +641,14 @@ class TestInitializations(unittest.TestCase):
                                      email='hello@chandlermoisen.com', photo_url='http://chandlermoinse.com/pic.jpg')
         self.assertEquals(r.status_code, 200)
 
-        class_student_id = get_first_id_from_response(r)
+        student_id = get_first_id_from_response(r)
+        class_student_id = get_first_id_from_response(r, id_key='class_student_id')
 
         ############
         ## Query for proof
 
         ## Attendance
-        r = self._read_attendance_by_lecture(lecture_id)
+        r = self._read_attendance_by_class_lecture(class_lecture_id)
         self.assertEquals(r.status_code, 200)
 
         attendances = r.json()['data']
@@ -566,13 +656,13 @@ class TestInitializations(unittest.TestCase):
 
         attendance = attendances[0]
 
-        self.assertEquals(attendance['attendance']['lecture_id'], lecture_id)
-        # attendance defaults to False
-        self.assertEquals(attendance['attendance']['did_attend'], False)
-        #self.assertEquals(attendance['student']['id'], student_id)
+        self.assert_instantiated_attendance(attendance=attendance, class_lecture_id=class_lecture_id,
+                                            class_student_id=class_student_id, class_id=class_id, lecture_id=lecture_id,
+                                            student_id=student_id)
+
 
         ## Assignments
-        r = self._read_assignment(class_id, course_homework_id)
+        r = self._read_assignment_by_class_homework(class_homework_id)
         self.assertEquals(r.status_code, 200)
 
         assignments = r.json()['data']
@@ -581,13 +671,18 @@ class TestInitializations(unittest.TestCase):
 
         assignment = assignments[0]
 
-        self.assertEquals(assignment['assignment']['course_homework_id'], course_homework_id)
-        self.assertEquals(assignment['assignment']['class_student_id'], class_student_id)
-        self.assertEquals(assignment['homework']['name'], 'Homework 1')
+        self.assert_instantiated_assignment(assignment=assignment, class_homework_id=class_homework_id,
+                                            class_student_id=class_student_id, class_id=class_id,
+                                            homework_id=homework_id, student_id=student_id)
+
 
 
 
     def test_add_lecture(self):
+        '''
+        This creates a Course, Class, Student on Class, and Lecture on Class, in that order.
+        Creating the Lecture on Class should instantiate the Attendence
+        '''
         r = create_course(name='Matthew''s Course')
         self.assertEquals(r.status_code, 200)
 
@@ -605,7 +700,8 @@ class TestInitializations(unittest.TestCase):
                                      email='hello@chandlermoisen.com', photo_url='http://chandlermoinse.com/pic.jpg')
         self.assertEquals(r.status_code, 200)
 
-        class_student_id = get_first_id_from_response(r)
+        student_id = get_first_id_from_response(r)
+        class_student_id = get_first_id_from_response(r, id_key='class_student_id')
 
         #######
         ## Create Lecture
@@ -613,9 +709,10 @@ class TestInitializations(unittest.TestCase):
         self.assertEquals(r.status_code, 200)
 
         lecture_id = get_first_id_from_response(r)
+        class_lecture_id = get_first_id_from_response(r, id_key='class_lecture_id')
 
         # Query Attendance for proof
-        r = self._read_attendance_by_lecture(lecture_id)
+        r = self._read_attendance_by_class_lecture(class_lecture_id)
         self.assertEquals(r.status_code, 200)
 
         attendances = r.json()['data']
@@ -623,12 +720,16 @@ class TestInitializations(unittest.TestCase):
 
         attendance = attendances[0]
 
-        self.assertEquals(attendance['attendance']['lecture_id'], lecture_id)
-        # attendance defaults to False
-        self.assertEquals(attendance['attendance']['did_attend'], False)
-        self.assertEquals(attendance['attendance']['class_student_id'], class_student_id)
+
+        self.assert_instantiated_attendance(attendance=attendance, class_lecture_id=class_lecture_id,
+                                            class_student_id=class_student_id, class_id=class_id, lecture_id=lecture_id,
+                                            student_id=student_id)
 
     def test_add_homework(self):
+        '''
+        This creates a Course, Class, Student on Class, and Homework on Class, in that order.
+        Creating the Homework on Class should instantiate the Assignment.
+        '''
         r = create_course(name='Matthew''s Course')
         self.assertEquals(r.status_code, 200)
 
@@ -645,17 +746,20 @@ class TestInitializations(unittest.TestCase):
                                      email='hello@chandlermoisen.com', photo_url='http://chandlermoinse.com/pic.jpg')
         self.assertEquals(r.status_code, 200)
 
-        class_student_id = get_first_id_from_response(r)
+        student_id = get_first_id_from_response(r)
+        class_student_id = get_first_id_from_response(r, id_key='class_student_id')
 
         ## Create Dependent Homework and Add to Course Synchronously
-        r = create_homework_dependent(course_id=course_id, name='Homework 1')
+        r = create_class_homework(class_id=class_id, name='Homework 1')
         self.assertEquals(r.status_code, 200)
-        course_homework_id = get_first_id_from_response(r)
+
+        homework_id = get_first_id_from_response(r)
+        class_homework_id = get_first_id_from_response(r, id_key='class_homework_id')
 
 
         ## Query Assignments for Proof
         ## Assignments
-        r = self._read_assignment(class_id, course_homework_id)
+        r = self._read_assignment_by_class_homework(class_homework_id)
         self.assertEquals(r.status_code, 200)
 
         assignments = r.json()['data']
@@ -664,9 +768,9 @@ class TestInitializations(unittest.TestCase):
 
         assignment = assignments[0]
 
-        self.assertEquals(assignment['assignment']['course_homework_id'], course_homework_id)
-        self.assertEquals(assignment['assignment']['class_student_id'], class_student_id)
-        self.assertEquals(assignment['homework']['name'], 'Homework 1')
+        self.assert_instantiated_assignment(assignment=assignment, class_homework_id=class_homework_id,
+                                            class_student_id=class_student_id, class_id=class_id,
+                                            homework_id=homework_id, student_id=student_id)
 
 
 
@@ -695,6 +799,8 @@ class TestException(unittest.TestCase):
         self.assertEquals(r.status_code, 400)
 
         j = r.json()
+
+        self.assertEquals(j['error'], "(sqlite3.IntegrityError) foreign key constraint failed")
 
 
 if __name__ == '__main__':

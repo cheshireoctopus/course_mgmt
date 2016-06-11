@@ -130,7 +130,7 @@ class Lecture(BaseModel):
     name = db.Column(db.String, nullable=False)
     description = db.Column(db.String)
 
-    __table__args__ = (db.CheckConstraint("name <> ''"),
+    __table_args__ = (db.CheckConstraint("name <> ''"),
                        {'sqlite_autoincrement': True})
 
 

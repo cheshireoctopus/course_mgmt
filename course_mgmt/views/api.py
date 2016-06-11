@@ -1003,17 +1003,18 @@ class StudentView(BaseView):
             # Instantiate Attendance and Assignments
 
 
-            class_student_ids = [class_student.id for class_student in class_students]
+            class_ids = [class_student.class_id for class_student in class_students]
             assignments = []
             attendances = []
 
-            class_homeworks = db.session.query(ClassHomework).filter(ClassHomework.class_id.in_(class_student_ids)).all()
-            class_lectures = db.session.query(ClassLecture).filter(ClassLecture.class_id.in_(class_student_ids)).all()
+            class_homeworks = db.session.query(ClassHomework).filter(ClassHomework.class_id.in_(class_ids)).all()
+            class_lectures = db.session.query(ClassLecture).filter(ClassLecture.class_id.in_(class_ids)).all()
 
             # Minimize N^2 damage with this
             class_homeworks_map, class_lectures_map = defaultdict(list), defaultdict(list)
             for class_homework in class_homeworks:
                 class_homeworks_map[class_homework.class_id].append(class_homework)
+
             for class_lecture in class_lectures:
                 class_lectures_map[class_lecture.class_id].append(class_lecture)
 
@@ -1219,14 +1220,14 @@ class LectureView(BaseView):
             db.session.bulk_save_objects(class_lectures, return_defaults=True)
 
             # Instantiate all of the Attendance
-            class_lecture_ids = [class_lecture.id for class_lecture in class_lectures]
+            class_ids = [class_lecture.class_id for class_lecture in class_lectures]
 
             # Minimize harm from N^2 loop
             class_lectures_maps = defaultdict(list)
             for class_lecture in class_lectures:
                 class_lectures_maps[class_lecture.class_id].append(class_lecture)
 
-            class_students = db.session.query(ClassStudent).filter(ClassStudent.class_id.in_(class_lecture_ids)).all()
+            class_students = db.session.query(ClassStudent).filter(ClassStudent.class_id.in_(class_ids)).all()
             if class_students:
                 attendances = []
 
@@ -1620,19 +1621,19 @@ class HomeworkView(BaseView):
         if class_homeworks:
             db.session.bulk_save_objects(class_homeworks, return_defaults=True)
 
-            class_homework_ids = [class_homework.id for class_homework in class_homeworks]
+            class_ids = [class_homework.class_id for class_homework in class_homeworks]
 
             # Minimize harm from N^2 loop
             class_homeworks_map = defaultdict(list)
             for class_homework in class_homeworks:
                 class_homeworks_map[class_homework.class_id].append(class_homework)
 
-            class_students = db.session.query(ClassStudent).filter(ClassStudent.class_id.in_(class_homework_ids)).all()
+            class_students = db.session.query(ClassStudent).filter(ClassStudent.class_id.in_(class_ids)).all()
             if class_students:
                 assignments = []
 
                 for class_student in class_students:
-                    for class_homework in class_homeworks_map[class_student['class_id']]:
+                    for class_homework in class_homeworks_map[class_student.class_id]:
                         assignments.append(Assignment(class_homework_id=class_homework.id,
                                                       class_student_id=class_student.id))
 
