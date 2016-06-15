@@ -341,6 +341,27 @@ def create_student_dependent(class_id, first_name, last_name, github_username, e
 
     return hit_api(api, data, method=method)
 
+def update_class_homework(class_homework_id, name):
+    '''
+    Used to update a homework that is associated to a class
+    Which actually creates a new Homework row and mutates the ClassHomework row to point to the Homework row
+    :param class_homework_id:
+    :param name:
+    :return:
+    '''
+    api = '/api/homework/'
+    method = 'PUT'
+    data = {
+        'data': [
+            {
+                'class_homework_id': class_homework_id,
+                'name': name
+            }
+        ]
+    }
+
+    return hit_api(api, data, method=method)
+
 class TestAll(unittest.TestCase):
     def setUp(self):
         # Drop and recreate the database
@@ -511,7 +532,7 @@ def create_interference():
     course_homework = CourseHomework(course_id=course.id, homework_id=homework.id)
     db.session.add(course_homework)
 
-    clazz = Class(course_id=course.id, name='Spring 2015', start_dt=datetime.now(), end_dt=datetime.now())
+    clazz = Class(course_id=course.id, name='Interference 2015', start_dt=datetime.now(), end_dt=datetime.now())
     db.session.add(clazz)
     db.session.flush()
 
@@ -538,6 +559,82 @@ def create_interference():
     assignment = Assignment(class_student_id=class_student.id, class_homework_id=class_homework.id)
     db.session.add(assignment)
     db.session.commit()
+
+
+
+class TestPutHomework(unittest.TestCase):
+    def setUp(self):
+        # Drop and recreate the database
+        self.assertEquals(200, drop_and_create_db().status_code)
+        create_interference()
+        course = Course(name="Matthew")
+        db.session.add(course)
+        #db.session.flush()
+
+        homework = Homework(name="Homework 1")
+        db.session.add(homework)
+        db.session.flush()
+
+        self.original_homework_id = homework.id
+
+        course_homework = CourseHomework(course_id=course.id, homework_id=homework.id)
+        db.session.add(course_homework)
+
+        clazz = Class(course_id=course.id, name="Matthew 2016", start_dt=datetime.now(), end_dt=datetime.now())
+        db.session.add(clazz)
+        db.session.flush()
+
+        class_homework = ClassHomework(class_id=clazz.id, homework_id=homework.id)
+        db.session.add(class_homework)
+        db.session.flush()
+        db.session.commit()
+
+        self.class_homework_id = class_homework.id
+
+    def test_update_course_homework_for_class_first_time(self):
+        '''
+        This is when a teacher "updates" a class homework for the first time
+            which actually creates a new Homework using the old Course Homework, makes the changes
+            and switches the homework_id in ClassHomework to point to the new homework
+        '''
+
+        # Update the class homework for the very first time
+        r = update_class_homework(class_homework_id=self.class_homework_id, name='Homework 100')
+        self.assertEquals(r.status_code, 200)
+
+        q = db.session.query(Homework, ClassHomework).join(ClassHomework).filter(ClassHomework.id==self.class_homework_id)
+        homework, class_homework = q.one()
+
+        self.assertEquals(homework.name, 'Homework 100')
+        self.assertEquals(homework.parent_id, self.original_homework_id)
+
+        # If I dont delete thsese, the next query down below gets stale data for some reason -- why does this happen?
+        del homework
+        del class_homework
+
+        original_homework = db.session.query(Homework).filter_by(id=self.original_homework_id).one()
+        self.assertEquals(original_homework.id, self.original_homework_id)
+
+        ## Update the class homework for the second time
+        r = update_class_homework(class_homework_id=self.class_homework_id, name='Homework 1000')
+        self.assertEquals(r.status_code, 200)
+
+        print "class_homework_id is ", self.class_homework_id
+        q = db.session.query(Homework, ClassHomework).join(ClassHomework).filter(ClassHomework.id==self.class_homework_id)
+        homework, class_homework = q.one()
+        self.assertEquals(homework.name, 'Homework 1000')
+        self.assertEquals(homework.parent_id, self.original_homework_id)
+
+
+
+    def test_update_course_homework_for_class_second_time(self):
+        '''
+        If a teacher updates a class homework after he already updated it,
+            the Homework row should be updated directly as opposed to doing the insert thing
+            and the ClassHomework row shouldn't be modified
+        '''
+
+
 
 class TestInitializations(unittest.TestCase):
     '''
