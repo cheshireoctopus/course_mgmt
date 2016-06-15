@@ -5,7 +5,7 @@ module.exports = React.createClass({
 	displayName: 'Courses',
 
 	propTypes: {
-		courses: React.PropTypes.object.isRequired,
+		courses: React.PropTypes.array.isRequired,
 		showCourse: React.PropTypes.func.isRequired,
 		toggleForm: React.PropTypes.func.isRequired,
 	},

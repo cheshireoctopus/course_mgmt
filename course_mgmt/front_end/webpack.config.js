@@ -39,6 +39,10 @@ module.exports = {
 				loader: 'expose?$!expose?jQuery',
 			},
 			{
+				test: require.resolve('immutable'),
+				loader: 'expose?$!expose?Immutable',
+			},
+			{
 				test: /\.css$/,
 				loader: 'style-loader!css-loader',
 			},

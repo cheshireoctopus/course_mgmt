@@ -9,6 +9,7 @@ module.exports = React.createClass({
 		course: React.PropTypes.object,
 		onClose: React.PropTypes.func.isRequired,
 		onSave: React.PropTypes.func.isRequired,
+		onEdit: React.PropTypes.func.isRequired,
 	},
 
 	getInitialState () {
@@ -18,10 +19,12 @@ module.exports = React.createClass({
 	},
 
 	componentDidMount () {
-		if (!_.isEmpty(this.props.course)) this.refs.courseName.value = this.props.course.name
+		if (!_.isEmpty(this.props.course)) this.refs.courseName.value = this.props.course.get('name')
 	},
 
 	render () {
+		let btnText = _.isEmpty(this.props.course) ? 'Create' : 'Save'
+
 		return (
 			<div className="row">
 				<div className="col-md-4">
@@ -33,7 +36,7 @@ module.exports = React.createClass({
 								<input ref="courseName" name="courseName" className="form-control" placeholder="Course Name" />
 							</div>
 							<div className="form-group text-right">
-								<button className="btn btn-primary" onClick={this.handleFormSave}>Create</button>
+								<button className="btn btn-primary" onClick={this.handleFormSave}>{btnText}</button>
 								<button className="btn btn-default" onClick={this.handleOnClose}>Cancel</button>
 							</div>
 						</div>
@@ -52,6 +55,8 @@ module.exports = React.createClass({
 
 		let courseName = this.refs.courseName.value
 
-		this.props.onSave(courseName)
+		if (_.isEmpty(this.props.course)) return this.props.onSave(courseName)
+
+		return this.props.onEdit(this.props.course.id, courseName)
 	}
 })

@@ -3,6 +3,7 @@ var actions = require('courses/constants.js').ACTIONS
 var API = require('constants.js').API
 var _ = require('underscore')
 var Course = require('data/models/course.babel')
+var Courses = require('data/collections/courses.babel')
 
 module.exports = {
 	setup (options) {
@@ -33,8 +34,9 @@ module.exports = {
 			})
 			.done(() => {
 				let courses = getState().get('courses').filter(course => course.id !== courseId)
+				let collection = new Courses(courses.toJS())
 
-				dispatch(receiveCourses(courses))
+				dispatch(receiveCourses(collection))
 				dispatch(toggleLoading(false))
 			})
 		}
@@ -53,7 +55,38 @@ module.exports = {
 				data: JSON.stringify(data),
 			}).done(res => {
 				dispatch(toggleForm(false))
-				dispatch(addCourse(res.data[0]))
+
+				var course = new Course(res.data[0])
+
+				dispatch(addCourse(course))
+			})
+		}
+	},
+
+	editCourse (courseId, courseName) {
+		let data = {
+		    data: [{
+            	id: courseId,
+            	name: courseName
+        	}]
+		}
+
+		return (dispatch, getState) => {
+			dispatch(toggleLoading(true))
+
+			$.ajax({
+				url: API.COURSE,
+				type: 'PUT',
+				contentType: 'application/json',
+				data: JSON.stringify(data),
+			})
+			.then(() => {
+				let courses = new Courses(getState().get('courses').toJS())
+				courses.get(courseId).set({ name: courseName })
+
+				dispatch(receiveCourses(courses))
+				dispatch(toggleLoading(false))
+				dispatch(toggleForm(false))
 			})
 		}
 	},
@@ -79,7 +112,7 @@ module.exports = {
 	toggleForm (courseId) {
 		return (dispatch, getState) => {
 			let isShowingForm = getState().get('isShowingForm')
-			let course = _.findWhere(getState().get('courses'), { id: courseId })
+			let course = _.findWhere(getState().get('courses').toJS(), { id: courseId })
 
 			dispatch(toggleForm(!isShowingForm, course))
 		}
@@ -126,17 +159,10 @@ function receiveCourse (course) {
 	}
 }
 
-function receiveCourseClasses (classes) {
-	return {
-		type: actions.RECEIVE_COURSE_CLASSES,
-		payload: { classes },
-	}
-}
-
 function receiveCourses (courses) {
 	return {
 		type: actions.RECEIVE_COURSES,
-		payload: { courses },
+		payload: courses.models,
 	}
 }
 
