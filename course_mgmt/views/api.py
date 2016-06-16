@@ -1280,98 +1280,7 @@ class LectureView(BaseView):
 
     @try_except
     def put(self):
-        data = extract_data()
-
-        teacher_lecture_objs = {}
-        admin_lecture_objs = []
-
-        for obj in data:
-            if 'id' in obj and 'class_lecture_id' in obj:
-                raise UserError("Only either id or class_lecture_id is accepted, not both")
-
-            elif 'class_lecture_id' in obj:
-                teacher_lecture_objs[obj['class_lecture_id']] = obj
-
-            elif 'id' in obj:
-                admin_lecture_objs.append(obj)
-
-            else:
-                raise UserError("Either id or class_lecture_id is required")
-
-        app.logger.debug("teacher_lecture_objs are {}".format(teacher_lecture_objs))
-        app.logger.debug("admin_lecture_objs are {}".format(admin_lecture_objs))
-
-        # Save admin lectures first in the odd event the front end mixes an admin lecture and teacher homework
-        bulk_update(Lecture, admin_lecture_objs)
-
-        if not teacher_lecture_objs:
-            db.session.commit()
-            app.logger.debug("No teacher lecture objs, returning")
-            return jsonify({"meta": {"len": len(data)}, "data": data})
-
-        teacher_lectures = []
-
-        # Old teacher lectures are ClassLectures that have already been modified once
-        # This is used to perform an update instead of an insert
-        old_teacher_lectures = []
-
-        # Find the corresponding lecture for each ClassLecture
-        q = db.session.query(Lecture, ClassLecture).join(ClassLecture).filter(ClassLecture.id.in_(teacher_lecture_objs.keys()))
-        for lecture, class_lecture in q:
-            # TODO take into account whether or not this is the first change or not
-
-            # Use the dicdt for fast access
-            new_lecture_obj = teacher_lecture_objs[class_lecture.id]
-
-            # Add a reference to the lecture for use in next loop
-            new_lecture_obj['lecture'] = lecture
-
-            # Clone the lecture
-            db.session.expunge(lecture)
-            make_transient(lecture)
-
-            # Get rid of the lecture id so that it will insert in bulk_save_objs
-            parent_id = lecture.id
-            lecture.id = None
-            lecture.parent_id = parent_id
-
-            # Make the updates here
-            if 'name' in new_lecture_obj:
-                lecture.name = new_lecture_obj['name']
-
-            if 'description' in new_lecture_obj:
-                lecture.description = new_lecture_obj['description']
-
-            # TODO need to account for dt rite
-            if 'dt' not in new_lecture_obj:
-                raise UserError("")
-
-            teacher_lectures.append(lecture)
-
-        # Save the new lectures and get their IDs because we need to update the ClassLectures with them
-        db.session.bulk_save_objects(teacher_lectures, return_defaults=True)
-
-        class_lectures = []
-        for lecture_obj in teacher_lecture_objs.values():
-            # Set the id on lecture_obj, the reference of which is still in data, which will be returned in order
-            lecture_obj['id'] = lecture_obj['lecture'].id
-
-            app.logger.debug("lecture_obj['lecture'].id is {}".format(lecture_obj['lecture'].id))
-            del lecture_obj['lecture']
-
-            obj = {
-                'id': lecture_obj['class_lecture_id'],
-                'lecture_id': lecture_obj['id'],
-                'dt': lecture_obj['dt']
-            }
-
-            class_lectures.append(obj)
-
-        bulk_update(ClassLecture, class_lectures)
-
-        db.session.commit()
-
-        return jsonify({"meta": len(data), "data": data}), 200
+        return hardcore_update(Lecture)
 
 
 
@@ -1421,12 +1330,52 @@ def hardcore_update(model):
     but this could be shared by the PUT for lecture and homework ...
     :param model:
     :return:
+
+    This is used for both Lecture and Homework:
+
+    When a Class is created, the Class Homework and Class Lectures are automatically instantiated
+    from the Course Homework and Course Lectures for this class.course_id.
+
+    The teacher can change a particular homework to suite his needs for that particular class.
+
+    On the backend, what actually happens is the following:
+        If teacher modifies the Class Homework for the first time
+            A new Homwork is created, containing the same name, content, and etc. as the original Homework.
+                The parent_id of this Homework is set to the id of the original Homework.
+                The new Homwork's name, content and etc. are set to what the teacher proposes
+        If teacher modifies a previously modified Class Homework:
+            None of the above happens
+            The modified Homework gets modified again
+
+    I need to think about how I'm going to differentiate these three use cases especially regarding the URIs:
+        Admin changes the Course level template Homework
+            Maybe just if the ID is passed in?
+        Teacher changes the Class level instance Homework for the first time
+            Maybe just if the class_lecture_id is passed in?
+        Teacher changes a previously changed class level instance homework
+            Either the ID or the class_lecture_id is passed in?
+
+
+    So Request could look like this:
+
+    {
+        "data": [
+            {
+                "class_homework_id": 1,
+                "name": "my new name"
+            },
+            {
+                "id": 1,
+                "name": "my newer name"
+            }
+        ]
+    }
+
     '''
+
         # We will be returning data to user at the end of this to maintain the order
         # We will be moving the object references into teacher_homework_objs and admin_homework_objs
         #   and manipulating them elsewhere, such that when we return data it will contain the newly mutated attributes
-
-
 
     if model == Homework:
         class_model_id = 'class_homework_id'
@@ -1442,7 +1391,7 @@ def hardcore_update(model):
         class_model_id = 'class_lecture_id'
         model_id = 'lecture_id'
         class_model = ClassLecture
-        model_keys = ['name', 'description', 'dt']
+        model_keys = ['name', 'description']  # Remember dt is not on Lecture but ClassLecture
 
         make_class_model_obj = lambda model_obj: {
             'id': model_obj[class_model_id],
@@ -1462,7 +1411,7 @@ def hardcore_update(model):
     # Determine whether or not the obj is a teacher homework or a admin homework
     for obj in data:
         if 'id' in obj and class_model_id in obj:
-            raise UserError("Only either id or class_homework_id is accepted, not both")
+            raise UserError("Only either id or {} is accepted, not both".format(class_model_id))
 
         elif class_model_id in obj:
             teacher_objs[obj[class_model_id]] = obj
@@ -1471,13 +1420,13 @@ def hardcore_update(model):
             admin_objs.append(obj)
 
         else:
-            raise UserError("Either id or class_homework_id is required")
+            raise UserError("Either id or {} is required".format(class_model_id))
 
     app.logger.debug('teacher_homework_objs is {}'.format(teacher_objs))
     app.logger.debug('\nadmin_homework_objs is {}'.format(admin_objs))
 
     # Save admin homeworks first
-    bulk_update(Homework, admin_objs)
+    bulk_update(model, admin_objs)
 
     if not teacher_objs:
         db.session.commit()
@@ -1489,33 +1438,49 @@ def hardcore_update(model):
 
     # Old teacher homeworks are class homeworks that have already been modified once.
     # This is used to perform an update instead of an insert
-    old_teacher_homeworks = []
+    old_teacher_rows = []
     # Find the corresponding homework for each ClassHomework
     q = db.session.query(model, class_model).join(class_model).filter(class_model.id.in_(teacher_objs.keys()))
-    for homework, class_homework in q:
+    for model_obj, class_model_obj in q:
         # TODO Take into account whether or not this is the first change or not
 
         # Use the dict for fast access
-        new_homework_obj = teacher_objs[class_homework.id]
+        new_teacher_obj = teacher_objs[class_model_obj.id]
 
         # Add a reference to the homework for use in next loop
-        new_homework_obj['model'] = homework
+        new_teacher_obj['model'] = model_obj
 
-        # Clone the homework
-        db.session.expunge(homework)
-        make_transient(homework)
+        if model_obj.parent_id is None:
 
-        # Get rid of the homework id so that it will insert in bulk_save_objects
-        parent_id = homework.id
-        homework.id = None
-        homework.parent_id = parent_id
+            # Clone the homework
+            db.session.expunge(model_obj)
+            make_transient(model_obj)
 
-        # Make the updates here
-        for key in model_keys:
-            if key in new_homework_obj:
-                setattr(homework, key, new_homework_obj[key])
+            # Get rid of the homework id so that it will insert in bulk_save_objects
+            parent_id = model_obj.id
+            model_obj.id = None
+            model_obj.parent_id = parent_id
 
-        teacher_rows.append(homework)
+            # Make the updates here
+            for key in model_keys:
+                if key in new_teacher_obj:
+                    setattr(model_obj, key, new_teacher_obj[key])
+
+            teacher_rows.append(model_obj)
+
+        else:
+            d = {'id': model_obj.id}
+            for key in model_keys:
+                if key in new_teacher_obj:
+                    d[key] = new_teacher_obj[key]
+
+            old_teacher_rows.append(d)
+
+    app.logger.debug("WTF {}".format(old_teacher_rows))
+    print "wtf", old_teacher_rows
+
+    if old_teacher_rows:
+        bulk_update(model, old_teacher_rows)
 
     # Save the new homeworks and get their IDs because we need to update the ClassHomeworks with them
     db.session.bulk_save_objects(teacher_rows, return_defaults=True)
@@ -1525,10 +1490,11 @@ def hardcore_update(model):
         # Set the id on homework_obj, the reference of which is still in data, which will be returned in order
         model_obj['id'] = model_obj['model'].id
         del model_obj['model']
-        obj = {
-            'id': model_obj[class_model_id],
-            model_id: model_obj['id']
-        }
+        #obj = {
+        #    'id': model_obj[class_model_id],
+        #    model_id: model_obj['id']
+        #}
+        obj = make_class_model_obj(model_obj)
         class_models.append(obj)
 
     bulk_update(class_model, class_models)
@@ -1606,153 +1572,8 @@ class HomeworkView(BaseView):
 
     @try_except
     def put(self):
-        '''
-        When a Class is created, the Class Homework and Class Lectures are automatically instantiated
-        from the Course Homework and Course Lectures for this class.course_id.
+        return hardcore_update(Homework)
 
-        The teacher can change a particular homework to suite his needs for that particular class.
-
-        On the backend, what actually happens is the following:
-            If teacher modifies the Class Homework for the first time
-                A new Homwork is created, containing the same name, content, and etc. as the original Homework.
-                    The parent_id of this Homework is set to the id of the original Homework.
-                    The new Homwork's name, content and etc. are set to what the teacher proposes
-            If teacher modifies a previously modified Class Homework:
-                None of the above happens
-                The modified Homework gets modified again
-
-        I need to think about how I'm going to differentiate these three use cases especially regarding the URIs:
-            Admin changes the Course level template Homework
-                Maybe just if the ID is passed in?
-            Teacher changes the Class level instance Homework for the first time
-                Maybe just if the class_lecture_id is passed in?
-            Teacher changes a previously changed class level instance homework
-                Either the ID or the class_lecture_id is passed in?
-
-
-        So Request could look like this:
-
-        {
-            "data": [
-                {
-                    "class_homework_id": 1,
-                    "name": "my new name"
-                },
-                {
-                    "id": 1,
-                    "name": "my newer name"
-                }
-            ]
-        }
-
-        '''
-
-        # We will be returning data to user at the end of this to maintain the order
-        # We will be moving the object references into teacher_homework_objs and admin_homework_objs
-        #   and manipulating them elsewhere, such that when we return data it will contain the newly mutated attributes
-        data = extract_data()
-
-        # Why is this a dict? Because we are querying Homework where ClassHomework.id IN a list of ids,
-        #   we need a way to look up the original object quickly
-        teacher_homework_objs = {}
-        admin_homework_objs = []
-
-        # Determine whether or not the obj is a teacher homework or a admin homework
-        for obj in data:
-            if 'id' in obj and 'class_homework_id' in obj:
-                raise UserError("Only either id or class_homework_id is accepted, not both")
-
-            elif 'class_homework_id' in obj:
-                teacher_homework_objs[obj['class_homework_id']] = obj
-
-            elif 'id' in obj:
-                admin_homework_objs.append(obj)
-
-            else:
-                raise UserError("Either id or class_homework_id is required")
-
-        app.logger.debug('teacher_homework_objs is {}'.format(teacher_homework_objs))
-        app.logger.debug('\nadmin_homework_objs is {}'.format(admin_homework_objs))
-
-        # Save admin homeworks first
-        bulk_update(Homework, admin_homework_objs)
-
-        if not teacher_homework_objs:
-            db.session.commit()
-            app.logger.debug("No teacher homework objs, returning")
-            return jsonify({"meta": {"len": len(data)}, "data": data}), 200
-
-        # Take care of teacher homeworks now
-        teacher_homeworks = []
-
-        # Old teacher homeworks are class homeworks that have already been modified once.
-        # This is used to perform an update instead of an insert
-        old_teacher_homeworks = []
-        # Find the corresponding homework for each ClassHomework
-        q = db.session.query(Homework, ClassHomework).join(ClassHomework).filter(ClassHomework.id.in_(teacher_homework_objs.keys()))
-        for homework, class_homework in q:
-            # TODO Take into account whether or not this is the first change or not
-
-            # Use the dict for fast access
-            new_homework_obj = teacher_homework_objs[class_homework.id]
-
-            # Add a reference to the homework for use in next loop
-            new_homework_obj['homework'] = homework
-
-            if homework.parent_id is None:
-                # Clone the homework
-                db.session.expunge(homework)
-                make_transient(homework)
-
-                # Get rid of the homework id so that it will insert in bulk_save_objects
-                parent_id = homework.id
-                homework.id = None
-                homework.parent_id = parent_id
-                teacher_homeworks.append(homework)
-
-                #Make the updates here
-                if 'name' in new_homework_obj:
-                    homework.name = new_homework_obj['name']
-
-
-
-            else: #  homework.parent_id == 50000:
-                d = {}
-                d['id'] = homework.id
-                if 'name' in new_homework_obj:
-                    d['name'] = new_homework_obj['name']
-
-                old_teacher_homeworks.append(d)
-
-        app.logger.debug("OLD_TEACHER_HOMEWORKS ARE {}".format(old_teacher_homeworks))
-        if old_teacher_homeworks:
-            bulk_update(Homework, old_teacher_homeworks)
-
-
-        app.logger.debug("TEACHER HOMEWORKS ARE {}".format([o.json for o in teacher_homeworks]))
-        # Save the new homeworks and get their IDs because we need to update the ClassHomeworks with them
-        db.session.bulk_save_objects(teacher_homeworks, return_defaults=True)
-
-        class_homeworks = []
-        for homework_obj in teacher_homework_objs.values():
-            # Set the id on homework_obj, the reference of which is still in data, which will be returned in order
-            homework_obj['id'] = homework_obj['homework'].id
-            del homework_obj['homework']
-            obj = {
-                'id': homework_obj['class_homework_id'],
-                'homework_id': homework_obj['id']
-            }
-            class_homeworks.append(obj)
-
-        bulk_update(ClassHomework, class_homeworks)
-
-        db.session.commit()
-
-        q = db.session.query(Homework, ClassHomework).join(ClassHomework).filter(ClassHomework.id == 303)
-        for homework, class_homework in q:
-            app.logger.debug("WTF {} {}".format(homework.json, class_homework.json))
-
-        return jsonify({"meta": len(data), "data": data}), 200
 
 
 

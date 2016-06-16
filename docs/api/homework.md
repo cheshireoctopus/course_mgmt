@@ -169,15 +169,17 @@ Remember that a Homework can be associated at the Course level and the Class lev
 Case | Description
 -----|------------
 1    | An admin ought to be able to alter the Homework at the Course level and have that propagate down to all Classes.
-2    | A teacher on the other hand ought to be able tl alter the Homework just for one particular class.
+2    | A teacher on the other hand ought to be able to alter the Homework just for one particular class.
 
 The goal of this API design is to accommodate both.
 
-A quick note on Case 2: When a teacher "updates a Class level Homework", what actually happens in the backend is the following:
+A quick note on Case 2: When a teacher "updates a Class level Homework", what actually happens in the backend is the following, if performed for the very **first** time:
 
 1. A new Homework is created with all the same attributes as the Parent Homework
 2. The new Homework's attributes are updated with whatever values are PUT in the object
 3. The Class Homework associated to the old Homework is then associated with the new Homework
+
+If the teacher decides to update the same Homework **again**, this doesn't happen, but rather the Homework object is updated directly. Note that the implementation for this relies on checking if parent_id is null, which is fine for the beta design but once we implement the Admin and Teacher template system this will need to change.
 
 When the front end wants to update a Course level Homework (Case 1), the object passed in should contain the `id` of the Homework object and the Homework related attributes to change. It should NOT contain a `class_homework_id`.
 When the front end wants to update a Class level Homework (Case 2), the object passed in should contain the `class_homework_id` of the ClassHomework object and the Homework related attributes to change. It should NOT contain a `id`
@@ -200,8 +202,8 @@ Request:
         ]
     }
 
-Note that the response is much different than PUTs on other models. Because in the Case 2 (Class level Homework change) update, we actually insert a new Homework object and then
-mutate the ClassHomework's `homework_id` to the new Homework's `id`, this should be passed back to the front end. Note how the second object in this response has an `id`-- this
+Note that the response is **much different** than PUTs on other models. Because in the Case 2 (Class level Homework change) update, we actually insert a new Homework object and then
+mutate the ClassHomework's `homework_id` to the new Homework's `id`, this should be passed back to the front end who needs to update the front end objects accordingly. Note how the second object in this response has an `id`-- this
 is the new Homework's `id`. The front end should update this.
 
 Response:

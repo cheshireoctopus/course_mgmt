@@ -129,6 +129,7 @@ class Lecture(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String, nullable=False)
     description = db.Column(db.String)
+    parent_id = db.Column(db.Integer, db.ForeignKey('lecture.id'), nullable=True)
 
     __table_args__ = (db.CheckConstraint("name <> ''"),
                        {'sqlite_autoincrement': True})

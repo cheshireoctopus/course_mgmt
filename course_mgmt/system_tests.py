@@ -4,6 +4,7 @@ from course_mgmt.models import *  # db, all_models
 import unittest
 import requests
 from course_mgmt.views.api import extract_data, parse_data_from_query_args, parse_id_from_query_args, json_to_model
+from course_mgmt.views.api import hardcore_update
 import json
 URL = 'http://localhost:5000'
 
@@ -362,6 +363,29 @@ def update_class_homework(class_homework_id, name):
 
     return hit_api(api, data, method=method)
 
+def update_class_lecture(class_lecture_id, name, description, dt):
+    '''
+    Used to update a lecture that is associated to a class
+    Which actually creates a new Lecture row and mutates the ClassLecture row to point to the Lecture row
+    :param class_lecture_id:
+    :param name:
+    :return:
+    '''
+    api = '/api/lecture/'
+    method = 'PUT'
+    data = {
+        'data': [
+            {
+                'class_lecture_id': class_lecture_id,
+                'name': name,
+                'description': description,
+                'dt': dt.strftime(date_format) if isinstance(dt, datetime) else dt
+            }
+        ]
+    }
+
+    return hit_api(api, data, method=method)
+
 class TestAll(unittest.TestCase):
     def setUp(self):
         # Drop and recreate the database
@@ -428,7 +452,7 @@ class TestAll(unittest.TestCase):
 
         # Get Lecture
         r = get_lecture(lecture_id)
-        self.assert_data_equals(r, id=lecture_id, name='Lecture 1', description='The first lecture1')
+        self.assert_data_equals(r, id=lecture_id, name='Lecture 1', description='The first lecture1', parent_id='')
 
         # Update lecture
         #r = update_lecture(id=lecture_id, name='Lecture 2', description='The second lecture', dt='2015-01-01 00:00:00')
@@ -564,6 +588,8 @@ def create_interference():
 
 class TestPutHomework(unittest.TestCase):
     def setUp(self):
+
+
         # Drop and recreate the database
         self.assertEquals(200, drop_and_create_db().status_code)
         create_interference()
@@ -591,17 +617,9 @@ class TestPutHomework(unittest.TestCase):
 
         self.class_homework_id = class_homework.id
 
-    def test_update_course_homework_for_class_first_time(self):
-        '''
-        This is when a teacher "updates" a class homework for the first time
-            which actually creates a new Homework using the old Course Homework, makes the changes
-            and switches the homework_id in ClassHomework to point to the new homework
-        '''
 
-        # Update the class homework for the very first time
-        r = update_class_homework(class_homework_id=self.class_homework_id, name='Homework 100')
-        self.assertEquals(r.status_code, 200)
 
+    def assert_homework_first_update(self):
         q = db.session.query(Homework, ClassHomework).join(ClassHomework).filter(ClassHomework.id==self.class_homework_id)
         homework, class_homework = q.one()
 
@@ -615,9 +633,10 @@ class TestPutHomework(unittest.TestCase):
         original_homework = db.session.query(Homework).filter_by(id=self.original_homework_id).one()
         self.assertEquals(original_homework.id, self.original_homework_id)
 
+    def assert_homework_second_update(self):
+
         ## Update the class homework for the second time
-        r = update_class_homework(class_homework_id=self.class_homework_id, name='Homework 1000')
-        self.assertEquals(r.status_code, 200)
+
 
         print "class_homework_id is ", self.class_homework_id
         q = db.session.query(Homework, ClassHomework).join(ClassHomework).filter(ClassHomework.id==self.class_homework_id)
@@ -625,15 +644,179 @@ class TestPutHomework(unittest.TestCase):
         self.assertEquals(homework.name, 'Homework 1000')
         self.assertEquals(homework.parent_id, self.original_homework_id)
 
-
-
-    def test_update_course_homework_for_class_second_time(self):
+    def test_rest_update_homework(self):
         '''
-        If a teacher updates a class homework after he already updated it,
-            the Homework row should be updated directly as opposed to doing the insert thing
-            and the ClassHomework row shouldn't be modified
+        This is when a teacher "updates" a class homework for the first time
+            which actually creates a new Homework using the old Course Homework, makes the changes
+            and switches the homework_id in ClassHomework to point to the new homework
         '''
 
+        # Update the class homework for the very first time
+        r = update_class_homework(class_homework_id=self.class_homework_id, name='Homework 100')
+        self.assertEquals(r.status_code, 200)
+        # Todo: check data response
+
+        self.assert_homework_first_update()
+
+        r = update_class_homework(class_homework_id=self.class_homework_id, name='Homework 1000')
+        self.assertEquals(r.status_code, 200)
+
+        self.assert_homework_second_update()
+
+    def test_function_update_homework(self):
+        app = Flask(__name__)
+        data = {
+            'data': [
+                {
+                    'class_homework_id': self.class_homework_id,
+                    'name': 'Homework 100'
+                }
+            ]
+        }
+        headers = {
+            'Content-Type': 'application/json'
+        }
+
+        # First update
+        with app.test_request_context(headers=headers, data=json.dumps(data)):
+            r = hardcore_update(Homework)
+            self.assertEquals(r[1], 200)
+            # Todo: check data response
+
+            self.assert_homework_first_update()
+
+        data['data'][0]['name'] = 'Homework 1000'
+
+        #Second update
+        with app.test_request_context(headers=headers, data=json.dumps(data)):
+            r = hardcore_update(Homework)
+            self.assertEquals(r[1], 200)
+
+            self.assert_homework_second_update()
+
+
+class TestPutLecture(unittest.TestCase):
+    def setUp(self):
+
+
+        # Drop and recreate the database
+        self.assertEquals(200, drop_and_create_db().status_code)
+        create_interference()
+        course = Course(name="Matthew")
+        db.session.add(course)
+        #db.session.flush()
+
+        lecture = Lecture(name="Lecture 1", description='Description 1')
+        db.session.add(lecture)
+        db.session.flush()
+
+        self.original_lecture_id = lecture.id
+
+        course_lecture = CourseLecture(course_id=course.id, lecture_id=lecture.id)
+        db.session.add(course_lecture)
+
+        clazz = Class(course_id=course.id, name="Matthew 2016", start_dt=datetime.now(), end_dt=datetime.now())
+        db.session.add(clazz)
+        db.session.flush()
+
+        #self.lecture_dt = datetime.now()
+        class_lecture = ClassLecture(class_id=clazz.id, lecture_id=lecture.id, dt=datetime.now())
+        db.session.add(class_lecture)
+        db.session.flush()
+        db.session.commit()
+
+        self.class_lecture_id = class_lecture.id
+
+
+
+    def assert_lecture_first_update(self, lecture_dt):
+        q = db.session.query(Lecture, ClassLecture).join(ClassLecture).filter(ClassLecture.id == self.class_lecture_id)
+        lecture, class_lecture = q.one()
+
+        self.assertEquals(lecture.name, 'Lecture 100')
+        self.assertEquals(lecture.description, 'Description 100')
+        self.assertEquals(class_lecture.dt, lecture_dt)  # self.lecture_dt)
+        self.assertEquals(lecture.parent_id, self.original_lecture_id)
+
+        # If I dont delete thsese, the next query down below gets stale data for some reason -- why does this happen?
+        del lecture
+        del class_lecture
+
+        original_lecture = db.session.query(Lecture).filter_by(id=self.original_lecture_id).one()
+        self.assertEquals(original_lecture.id, self.original_lecture_id)
+
+    def assert_lecture_second_update(self, lecture_dt):
+
+        ## Update the class lecture for the second time
+
+
+        print "class_lecture_id is ", self.class_lecture_id
+        q = db.session.query(Lecture, ClassLecture).join(ClassLecture).filter(ClassLecture.id == self.class_lecture_id)
+        lecture, class_lecture = q.one()
+        self.assertEquals(lecture.name, 'Lecture 1000')
+        self.assertEquals(lecture.description, 'Description 1000')
+        self.assertEquals(class_lecture.dt, lecture_dt)
+        self.assertEquals(lecture.parent_id, self.original_lecture_id)
+
+    def test_rest_update_lecture(self):
+        '''
+        This is when a teacher "updates" a class lecture for the first time
+            which actually creates a new Lecture using the old Course Lecture, makes the changes
+            and switches the lecture_id in ClassLecture to point to the new Lecture
+        '''
+
+        # Update the class lecture for the very first time
+        lecture_dt = datetime(year=2017, month=1, day=1, hour=0, minute=0, second=0)
+        r = update_class_lecture(class_lecture_id=self.class_lecture_id, name='Lecture 100', description='Description 100', dt=lecture_dt)
+        self.assertEquals(r.status_code, 200)
+        # Todo: check data response
+
+        self.assert_lecture_first_update(lecture_dt)
+
+        lecture_dt = datetime(year=2018, month=2, day=2, hour=2, minute=2, second=2)
+        r = update_class_lecture(class_lecture_id=self.class_lecture_id, name='Lecture 1000', description='Description 1000', dt=lecture_dt)
+        self.assertEquals(r.status_code, 200)
+
+        self.assert_lecture_second_update(lecture_dt)
+        # Todo: check data response
+
+    def test_function_update_lecture(self):
+        app = Flask(__name__)
+        lecture_dt = datetime(year=2017, month=1, day=1, hour=0, minute=0, second=0)
+        data = {
+            'data': [
+                {
+                    'class_lecture_id': self.class_lecture_id,
+                    'name': 'Lecture 100',
+                    'description': 'Description 100',
+                    'dt': lecture_dt.strftime(date_format)
+                }
+            ]
+        }
+        headers = {
+            'Content-Type': 'application/json'
+        }
+
+        # First update
+        with app.test_request_context(headers=headers, data=json.dumps(data)):
+            r = hardcore_update(Lecture)
+            self.assertEquals(r[1], 200)
+            # Todo: check data response
+            import time
+            time.sleep(2)
+            self.assert_lecture_first_update(lecture_dt)
+
+        data['data'][0]['name'] = 'Lecture 1000'
+        data['data'][0]['description'] = 'Description 1000'
+        lecture_dt = datetime(year=2018, month=2, day=2, hour=2, minute=2, second=2)
+        data['data'][0]['dt'] = lecture_dt.strftime(date_format)
+
+        #Second update
+        with app.test_request_context(headers=headers, data=json.dumps(data)):
+            r = hardcore_update(Lecture)
+            self.assertEquals(r[1], 200)
+            # TODO check data response
+            self.assert_lecture_second_update(lecture_dt)
 
 
 class TestInitializations(unittest.TestCase):
