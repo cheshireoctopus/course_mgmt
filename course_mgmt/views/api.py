@@ -68,10 +68,16 @@ def extract_form(form, keys=None):
 def extract_data():
     if not request.json:
         raise UserError("Set Content-Type: application/json")
+
+    form = request.json
+
+    if not isinstance(form, dict):
+        raise UserError('Request body should be a JSON like: {"data": x}, where x is a [] or {}')
+
     try:
-        data = request.json['data']
+        data = form['data']
     except KeyError as ex:
-        raise UserError("Data attribute is required in request")
+        raise UserError('"data" attribute is required in request body')
 
     return data
 

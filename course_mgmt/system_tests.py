@@ -1283,7 +1283,17 @@ class TestExtractData(unittest.TestCase):
             try:
                 extract_data()
             except UserError as ex:
-                self.assertEquals(ex.message, "Data attribute is required in request")
+                self.assertEquals(ex.message, '"data" attribute is required in request body')
+
+    def test_data_isnt_dict(self):
+        data = json.dumps([{'hai':'bai'}])
+        with self.app.test_request_context(headers=self.headers, data=data):
+            self.assertRaises(UserError, extract_data)
+
+            try:
+                extract_data()
+            except UserError as ex:
+                self.assertEquals(ex.message, 'Request body should be a JSON like: {"data": x}, where x is a [] or {}')
 
 class TestJsonToModel(unittest.TestCase):
     def setUp(self):
