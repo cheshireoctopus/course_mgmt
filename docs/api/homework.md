@@ -233,6 +233,22 @@ Key      | Value
 -------- | --------
 URI      | /api/homework/
 Method   | DELETE
+Notes    | This API accepts five different types of objects in `data` to cover the following three cases.
+
+    1. Delete a new Homework
+        "id" is present; no "course_id" or "class_id" are present
+    2. Delete the association between a Homework and a Course
+        A: "course_homework_id" is present 
+        OR 
+        B: "id AND "course_id" are present
+    3. Delete the association between a Homework and a Class
+        A: "class_homework_id" is present 
+        OR 
+        B: "id" AND "class_id" are present
+
+Note that for case 2 and 3, the front end should always have `course_homework_id` and `class_homework_id` available.
+This is a more efficient way of deleting the association because it involves one less call to the database.
+I might disable the "id and course_id/class_id" combinations because of this.
 
 Request:
 
@@ -241,6 +257,14 @@ Request:
             {
                 "id": 1,
             },
+            {
+                "id": 2, 
+                "course_id": 1
+            },
+            {
+                "id": 3,
+                "course_id": 1
+            },
             ...
         ]
     }
@@ -248,7 +272,9 @@ Request:
 Response:
 
     {
-        "meta": {"num_deleted": 1},
+        "meta": {
+            "num_deleted": 3
+        },
         "data": {}
     }
 

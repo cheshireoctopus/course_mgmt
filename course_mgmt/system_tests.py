@@ -6,6 +6,7 @@ import requests
 from course_mgmt.views.api import extract_data, parse_data_from_query_args, parse_id_from_query_args, json_to_model
 from course_mgmt.views.api import hardcore_update
 import json
+from sqlalchemy.orm.exc import NoResultFound
 URL = 'http://localhost:5000'
 
 class SqliteSequence(db.Model):
@@ -385,6 +386,54 @@ def update_class_lecture(class_lecture_id, name, description, dt):
     }
 
     return hit_api(api, data, method=method)
+
+def delete_homework(homework_id):
+    '''
+    Used to delete a Homework
+    '''
+    api = '/api/homework/'
+    method = 'DELETE'
+    data = {
+        'data': [
+            {
+                'id': homework_id
+            }
+        ]
+    }
+
+    return hit_api(api, data, method=method)
+
+def delete_course_homework(id=None, course_id=None, course_homework_id=None):
+    assert not id ^ course_id
+    assert (id and course_id) ^ course_homework_id
+
+    case_1 = True if id and course_id else False
+
+    api = '/api/homework/'
+    method = 'DELETE'
+    data = {
+        'data': [
+            {'id': id, 'course_id': course_id} if case_1 else {'course_homework_id': course_homework_id}
+        ]
+    }
+
+    return hit_api(api, data, method=method)
+
+def delete_class_homework(id=None, class_id=None, class_homework_id=None):
+    assert not id ^ class_id
+    assert (id and class_id) ^ class_homework_id
+
+    case_1 = True if id and class_id else False
+
+    api = '/api/homework/'
+    method = 'DELETE'
+    data = {
+        'data': [
+            {'id': id, 'class_id': class_id} if case_1 else {'class_homework_id': class_homework_id}
+        ]
+    }
+
+    return hti_api(api, data, method=method)
 
 class TestAll(unittest.TestCase):
     def setUp(self):
@@ -817,6 +866,56 @@ class TestPutLecture(unittest.TestCase):
             self.assertEquals(r[1], 200)
             # TODO check data response
             self.assert_lecture_second_update(lecture_dt)
+
+
+class TestDeleteHomework(unittest.TestCase):
+    def setUp(self):
+        # Drop and recreate the database
+        self.assertEquals(200, drop_and_create_db().status_code)
+        create_interference()
+
+        course = Course(name='Python 101')
+        db.session.add(course)
+
+        homework = Homework(name='Homework 2')
+        db.session.add(homework)
+
+        homework2 = Homework(name='Homework 2')
+        db.session.add(homework2)
+
+        db.session.flush()
+
+        course_homework = CourseHomework(course_id=course.id, homework_id=homework.id)
+        course_homework2 = CourseHomework(course_id=course.id, homework_id=homework2.id)
+
+        db.session.add(course_homework)
+        db.session.add(course_homework2)
+
+        clazz = Class(course_id=course.id, name='Python 101 2016', start_dt=datetime.now(), end_dt=datetime.now())
+        db.session.add(clazz)
+        db.session.flush()
+
+        class_homework = ClassHomework(class_id=clazz.id, homework_id=homework.id)
+        class_homework2 = ClassHomework(class_id=clazz.id, homework_id=homework2.id)
+        db.session.add(class_homework)
+        db.session.add(class_homework2)
+
+        db.session.commit()
+
+        self.homework_id = homework.id
+        self.homework2_id = homework.id
+        self.course_homework_id = course_homework.id
+        self.course_homework2_id = course_homework.id
+        self.class_homework_id = class_homework.id
+        self.class_homework2_id = class_homework2.id
+
+    def test_delete_homework_by_id(self):
+        r = delete_homework(self.homework_id)
+        self.assertEquals(r.status_code, 200)
+
+        self.assertRaises(NoResultFound, db.session.query(Homework).filter_by(id=self.homework_id).one)
+
+
 
 
 class TestInitializations(unittest.TestCase):

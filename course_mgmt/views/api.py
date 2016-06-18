@@ -14,6 +14,7 @@ from werkzeug.exceptions import BadRequest
 from functools import wraps
 from sqlalchemy.orm.session import make_transient
 from collections import defaultdict
+from sqlalchemy import or_, and_
 
 '''
 In shell for testing:
@@ -365,7 +366,7 @@ class BaseView(FlaskView):
         else:
             data = request.json['data']
             ids = [obj['id'] for obj in data]
-            num_deleted = db.session.query(self.model).filter(self.model.id.in_((id for id in ids))).delete(synchronize_session='fetch')
+            num_deleted = db.session.query(self.model).filter(self.model.id.in_((id for id in ids))).delete(synchronize_session=False)
 
         db.session.commit()
 
@@ -400,50 +401,61 @@ class CourseView(BaseView):
     @try_except
     @route('/<int:id>/', methods=['GET'])
     def get(self, id=None):
-        app.logger.debug(request.args)
-
-        if id is None:
-            courses = [course.json for course in db.session.query(self.model).all()]
-            return jsonify({"meta": {"len": len(courses)}, "data": courses}), 200
-
         get_homework, get_lecture, get_class = parse_data_from_query_args(['homework', 'lecture', 'class'])
-        app.logger.debug("{} {} {}".format(get_homework, get_lecture, get_class))
-        try:
-            course = db.session.query(Course).filter_by(id=id).one()
-        except NoResultFound:
-            raise UserError("No courses with id={}".format(id))
 
-        ret = course.json
+        courses = {}
+        q = db.session.query(Course)
+        if id is not None:
+            q = q.filter_by(id=id)
+
+        for course in q:
+            course_obj = course.json
+
+            if get_class:
+                course_obj['classes'] = []  # defaultdict(list)
+            if get_homework:
+                course_obj['homeworks'] = []  # defaultdict(list)
+            if get_lecture:
+                course_obj['lectures'] = []  # defaultdict(list)
+
+            courses[course.id] = course_obj
+
+        course_ids = courses.keys()
+
+        if not course_ids:
+            if id is not None:
+                raise UserError("No course with id {}".format(id))
+
+            return jsonify({"meta": {"len": 0}, "data": []}), 200
 
         if get_class:
-            ret['classes'] = []
-            q = db.session.query(Class).filter(Class.course_id == id)
+            q = db.session.query(Class).filter(Class.course_id.in_(course_ids))
             for clazz in q:
-                ret['classes'].append(clazz.json)
-                print (course.json, clazz.json,)
+                courses[clazz.course_id]['classes'].append(clazz.json)
 
         if get_homework:
-            ret['homeworks'] = []
             q = db.session.query(Homework, CourseHomework).join(CourseHomework).filter(CourseHomework.course_id == id)
             for homework, course_homework in q:
                 obj = homework.json
-
                 obj['course_homework_id'] = course_homework.id
-                ret['homeworks'].append(obj)
-                print (homework.json, course_homework.json)
+                courses[course_homework.course_id]['homeworks'].append(obj)
 
         if get_lecture:
-            ret['lectures'] = []
             q = db.session.query(Lecture, CourseLecture).join(CourseLecture).filter(CourseLecture.course_id == id)
             for lecture, course_lecture in q:
                 obj = lecture.json
-
                 obj['course_lecture_id'] = course_lecture.id
-                ret['lectures'].append(obj)
-                print (lecture.json, course_lecture.json)
+                courses[course_lecture.course_id]['lectures'].append(obj)
+
+        data = courses.values()
+        meta = {"len": len(data)}
+        if id is not None:
+            data = data[0]
+            meta = {}
+
+        return jsonify({"meta": meta, "data": data}), 200
 
 
-        return jsonify({"meta": {}, "data": ret})
 
     @route('/<int:course_id>/class/', methods=['GET'])
     @try_except
@@ -1736,6 +1748,109 @@ class HomeworkView(BaseView):
         db.session.commit()
 
         return jsonify({"meta": {"len": len(homeworks)}, "data": rets}), 200
+
+    @try_except
+    def delete(self):
+        '''
+        This API accepts 5 different types of input to cover three distinct cases:
+
+            1. Delete a new Homework
+                "id" is present; no "course_id" or "class_id" are present
+            2. Delete the association between a Homework and a Course
+                A: "course_homework_id" is present
+                OR
+                B: "id AND "course_id" are present
+            3. Delete the association between a Homework and a Class
+                A: "class_homework_id" is present
+                OR
+                B: "id" AND "class_id" are present
+        '''
+        data = extract_data()
+
+        homework_ids = []
+        class_homework_ids = []
+        course_homework_ids = []
+
+        course_homeworks = []  # {homework_id: 1, course_id: 1}
+        class_homeworks = []   # {homework_id: 1, class_id: 1}
+
+        app.logger.debug("data is {}".format(data))
+
+        for obj in data:
+            id = obj['id'] if 'id' in obj else False
+            class_id = obj['class_id'] if 'class_id' in obj else False
+            course_id = obj['course_id'] if 'course_id' in obj else False
+            course_homework_id = obj['course_homework_id'] if 'course_homework_id' in obj else False
+            class_homework_id = obj['class_homework_id'] if 'class_homework_id' in obj else False
+
+            if sum(map(bool, [id, course_homework_id, class_homework_id])) > 1:
+                app.logger.exception("id = {}, course_homework_id={}, class_homework_id={}".format(id, course_homework_id, class_homework_id))
+                raise UserError("id, course_homework_id, and class_homework_id should not be mixed")
+
+            if sum(map(bool, [class_id, course_id, course_homework_id, class_homework_id])) > 1:
+                raise UserError("course_homework_id and class_homework_id and course_id and class_id cannot be mixed")
+
+            if id:
+                d = {
+                    'homework_id': id
+                }
+                if class_id:
+                    d['class_id'] = obj['class_id']
+                    class_homeworks.append(d)
+                elif course_id:
+                    d['course_id'] = obj['course_id']
+                    course_homeworks.append(obj)
+                else:
+                    homework_ids.append(obj['id'])
+
+            if course_homework_id:
+                course_homework_ids.append(course_homework_id)
+
+            if class_homework_ids:
+                class_homeworks.append(class_homework_id)
+
+
+
+
+        # Transform case 2B into 2A
+        if course_homeworks:
+            q = db.session.query(CourseHomework)
+            q = q.filter(or_(*(and_(CourseHomework.homework_id == course_homework['homework_id'], CourseHomework.course_id == course_homework['course_id']) for course_homework in course_homeworks)))
+
+            course_homework_ids.extend(course_homework.id for course_homework in q.all())
+
+        # Transform case 3B into 3A
+        if class_homeworks:
+            q = db.session.query(ClassHomework)
+            q = q.filter(or_(*(and_(ClassHomework.homework_id == class_homework['homework_id'], ClassHomework.class_id == class_homework['class_id']) for class_homework in class_homeworks)))
+
+            class_homework_ids.extend(class_homework.id for class_homework in q.all())
+
+        num_deleted = 0
+
+        # Delete course_homeworks
+        if course_homeworks:
+            num_deleted += db.session.query(CourseHomework).filter(CourseHomework.id.in_(course_homework_ids)).delete(synchronize_session=False)
+
+        # Delete class_homeworks
+        if class_homeworks:
+            num_deleted += db.session.query(ClassHomework).filter(ClassHomework.id.in_(class_homework_ids)).delete(synchronize_session=False)
+
+        # Delete homeworks
+        if homework_ids:
+            num_deleted += db.session.query(Homework).filter(Homework.id.in_((id for id in homework_ids))).delete(synchronize_session=False)
+
+        db.session.commit()
+
+        return jsonify({"meta": {"num_deleted": num_deleted}, "data": {}})
+
+
+
+
+
+
+
+
 
 
 class AssignmentView(BaseView):
