@@ -1,12 +1,12 @@
 __author__ = 'mmoisen'
 from course_mgmt.models import *
 from course_mgmt import app
-from . import UserError, ServerError
+from . import UserError, ServerError, date_format
 from flask.ext.classy import FlaskView, route
 from flask import jsonify, request, url_for, redirect, g, session
 
 from datetime import datetime
-date_format = '%Y-%m-%d %H:%M:%S'
+
 from sqlalchemy.sql.sqltypes import Date, DateTime
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
@@ -240,7 +240,11 @@ def bulk_save(model, data, keys):
             kwargs = {}
             for key in keys:
                 if isinstance(getattr(model, key).type, DateTime):
-                    kwargs[key] = datetime.strptime(obj[key], date_format)
+                    try:
+                        kwargs[key] = datetime.strptime(obj[key], date_format)
+                    except ValueError as ex:
+                        raise UserError("Bad date format: {}".format(ex.message))
+
                 else:
                     kwargs[key] = obj[key]
             m = model(**kwargs)
@@ -262,13 +266,19 @@ def bulk_save(model, data, keys):
     return objs
 
 
+
+
+
 def bulk_update(model, data):
     objs = []
     for obj in data:
         kwargs = {}
         for key in obj:
             if isinstance(getattr(model, key).type, DateTime):
-                kwargs[key] = datetime.strptime(obj[key], date_format)
+                try:
+                    kwargs[key] = datetime.strptime(obj[key], date_format)
+                except ValueError as ex:
+                    raise UserError("Bad date format: {}".format(ex.message))
             else:
                 kwargs[key] = obj[key]
 

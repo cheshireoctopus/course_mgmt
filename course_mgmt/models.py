@@ -1,9 +1,9 @@
 __author__ = 'mmoisen'
 from course_mgmt import app
 from course_mgmt import db
-from course_mgmt.views import ServerError
+from course_mgmt.views import ServerError, date_format
 from datetime import datetime
-date_format = '%Y-%m-%d %H:%M:%S'
+#date_format = '%Y-%m-%d %H:%M:%S'
 from sqlalchemy.sql.sqltypes import Date, DateTime
 from sqlalchemy.orm import validates
 from course_mgmt.views import UserError

@@ -433,7 +433,7 @@ def delete_class_homework(id=None, class_id=None, class_homework_id=None):
         ]
     }
 
-    return hti_api(api, data, method=method)
+    return hit_api(api, data, method=method)
 
 class TestAll(unittest.TestCase):
     def setUp(self):
@@ -471,23 +471,23 @@ class TestAll(unittest.TestCase):
         self.assert_data_equals(r, id=course_id, name='Chandler''s Course')
 
         ## Create Class
-        r = create_class(course_id=course_id, name='Spring 2016', start_dt='2016-01-01 00:00:00', end_dt='2016-05-30 00:00:00')
+        r = create_class(course_id=course_id, name='Spring 2016', start_dt='2016-01-01T00:00:00.000000Z', end_dt='2016-05-30T00:00:00.000000Z')
         self.assertEquals(r.status_code, 200)
 
         class_id = get_first_id_from_response(r)
 
         # Get Class
         r = get_class(class_id)
-        self.assert_data_equals(r, id=class_id, name='Spring 2016', start_dt='2016-01-01 00:00:00', end_dt='2016-05-30 00:00:00',
+        self.assert_data_equals(r, id=class_id, name='Spring 2016', start_dt='2016-01-01T00:00:00.000000Z', end_dt='2016-05-30T00:00:00.000000Z',
                                 course_id=course_id)
 
         ## Update Class
-        r = update_class(id=class_id, name='Spring 2015', start_dt='2015-01-01 00:00:00', end_dt='2015-05-30 00:00:00')
+        r = update_class(id=class_id, name='Spring 2015', start_dt='2015-01-01T00:00:00.000000Z', end_dt='2015-05-30T00:00:00.000000Z')
         self.assertEquals(r.status_code, 200)
 
         # Get Class
         r = get_class(class_id)
-        self.assert_data_equals(r, id=class_id, name='Spring 2015', start_dt='2015-01-01 00:00:00', end_dt='2015-05-30 00:00:00', course_id=course_id)
+        self.assert_data_equals(r, id=class_id, name='Spring 2015', start_dt='2015-01-01T00:00:00.000000Z', end_dt='2015-05-30T00:00:00.000000Z', course_id=course_id)
 
 
         #r = create_class_lecture(class_id=class_id, name='Lecture 1', description='The first lecturel', dt='2016-01-01 00:00:00')
@@ -994,13 +994,13 @@ class TestInitializations(unittest.TestCase):
         course_id = get_first_id_from_response(r)
 
         ## Create Class
-        r = create_class(course_id=course_id, name="Spring 2016", start_dt='2016-01-01 00:00:00', end_dt='2016-05-30 00:00:00')
+        r = create_class(course_id=course_id, name="Spring 2016", start_dt='2016-01-01T00:00:00.000000Z', end_dt='2016-05-30T00:00:00.000000Z')
         self.assertEquals(r.status_code, 200)
 
         class_id = get_first_id_from_response(r)
 
         ## Create Lecture and Add to Class Synchronously
-        r = create_class_lecture(class_id=class_id, name='Lecture 1', description='The first lecturel', dt='2016-01-01 00:00:00')
+        r = create_class_lecture(class_id=class_id, name='Lecture 1', description='The first lecturel', dt='2016-01-01T00:00:00.000000Z')
         self.assertEquals(r.status_code, 200)
 
         lecture_id = get_first_id_from_response(r)
@@ -1068,7 +1068,7 @@ class TestInitializations(unittest.TestCase):
         course_id = get_first_id_from_response(r)
 
         ## Create Class
-        r = create_class(course_id=course_id, name="Spring 2016", start_dt='2016-01-01 00:00:00', end_dt='2016-05-30 00:00:00')
+        r = create_class(course_id=course_id, name="Spring 2016", start_dt='2016-01-01T00:00:00.000000Z', end_dt='2016-05-30T00:00:00.000000Z')
         self.assertEquals(r.status_code, 200)
 
         class_id = get_first_id_from_response(r)
@@ -1084,7 +1084,7 @@ class TestInitializations(unittest.TestCase):
 
         #######
         ## Create Lecture
-        r = create_class_lecture(class_id=class_id, name='Lecture 1', description='The first lecturel', dt='2016-01-01 00:00:00')
+        r = create_class_lecture(class_id=class_id, name='Lecture 1', description='The first lecturel', dt='2016-01-01T00:00:00.000000Z')
         self.assertEquals(r.status_code, 200)
 
         lecture_id = get_first_id_from_response(r)
@@ -1115,7 +1115,7 @@ class TestInitializations(unittest.TestCase):
         course_id = get_first_id_from_response(r)
 
         ## Create Class
-        r = create_class(course_id=course_id, name="Spring 2016", start_dt='2016-01-01 00:00:00', end_dt='2016-05-30 00:00:00')
+        r = create_class(course_id=course_id, name="Spring 2016", start_dt='2016-01-01T00:00:00.000000Z', end_dt='2016-05-30T00:00:00.000000Z')
         self.assertEquals(r.status_code, 200)
 
         class_id = get_first_id_from_response(r)
@@ -1174,7 +1174,7 @@ class TestException(unittest.TestCase):
         course_id = get_first_id_from_response(r)
 
         ## Create Class
-        r = create_class(course_id=10, name="Spring 2016", start_dt='2016-01-01 00:00:00', end_dt='2016-05-30 00:00:00')
+        r = create_class(course_id=10, name="Spring 2016", start_dt='2016-01-01T00:00:00.000000Z', end_dt='2016-05-30T00:00:00.000000Z')
         self.assertEquals(r.status_code, 400)
 
         j = r.json()
@@ -1302,7 +1302,7 @@ class TestJsonToModel(unittest.TestCase):
             'course_id': 1,
             'id': 2,
             'name': 'Test',
-            'start_dt': '2016-01-01 00:00:00'
+            'start_dt': '2016-01-01T00:00:00.000000Z'
         }
         self.keys = ['course_id', 'id', 'name', 'start_dt']
 
@@ -1314,7 +1314,7 @@ class TestJsonToModel(unittest.TestCase):
         self.assertEquals(model_inst.course_id, 1)
         self.assertEquals(model_inst.id, 2)
         self.assertEquals(model_inst.name, 'Test')
-        self.assertEquals(model_inst.start_dt, datetime.strptime('2016-01-01 00:00:00', date_format))
+        self.assertEquals(model_inst.start_dt, datetime.strptime('2016-01-01T00:00:00.000000Z', date_format))
 
     def test_happy_model_inst(self):
         '''
@@ -1328,7 +1328,7 @@ class TestJsonToModel(unittest.TestCase):
         self.assertEquals(model_inst.course_id, 1)
         self.assertEquals(model_inst.id, 2)
         self.assertEquals(model_inst.name, 'Test')
-        self.assertEquals(model_inst.start_dt, datetime.strptime('2016-01-01 00:00:00', date_format))
+        self.assertEquals(model_inst.start_dt, datetime.strptime('2016-01-01T00:00:00.000000Z', date_format))
 
     def test_key_not_in_obj(self):
         self.keys.append('foo')
@@ -1348,7 +1348,7 @@ class TestJsonToModel(unittest.TestCase):
         try:
             json_to_model(model=self.model, obj=self.obj, keys=self.keys)
         except UserError as ex:
-            self.assertEquals(ex.message, "Bad date format: time data '2016-01-01' does not match format '%Y-%m-%d %H:%M:%S'")
+            self.assertEquals(ex.message, "Bad date format: time data '2016-01-01' does not match format '{}'".format(date_format))
 
     def test_key_not_in_model(self):
         self.obj['foo'] = 'bar'
