@@ -7,7 +7,7 @@ services:
  - postgresql
 before_script:
  - export SQLALCHEMY_DATABASE_URI=postgresql://postgres@localhost/course_mgmt
- - psql -c 'create database travis_ci_test;' -U postgres
+ - psql -c 'create database course_mgmt;' -U postgres
 # command to run tests
 script: sh run_travis_test.sh
 after_script:
