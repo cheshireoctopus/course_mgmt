@@ -9,3 +9,4 @@ coverage
 markdown
 gunicorn
 flask-migrate
+psycopg2
