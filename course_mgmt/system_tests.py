@@ -4,7 +4,7 @@ from course_mgmt.models import *  # db, all_models
 import unittest
 import requests
 from course_mgmt.views.api import extract_data, parse_data_from_query_args, parse_id_from_query_args, json_to_model
-from course_mgmt.views.api import hardcore_update
+from course_mgmt.views.api import hardcore_update, delete_db
 import json
 from sqlalchemy.orm.exc import NoResultFound
 URL = 'http://localhost:5000'
@@ -13,6 +13,11 @@ class SqliteSequence(db.Model):
     __tablename__ = 'sqlite_sequence'
     name = db.Column(db.String, primary_key=True)
     seq = db.Column(db.Integer)
+
+class PostgresSequence(db.Model):
+    __tablename__ = 'pg_class'
+    relname = db.Column(db.String, primary_key=True)
+    relkind = db.Column(db.String)
 
 def get_first_id_from_response(r, id_key='id'):
     '''
@@ -41,19 +46,38 @@ def hit_api(api, data=None, params=None, method='POST'):
     r = getattr(requests, method.lower())(URL + api, json=data, params=params)
     return r
 
+class Lol(object):
+    def __init__(self):
+        self.status_code = 200
+
 def drop_and_create_db():
+
+    if app.config['DATABASE'] == 'postgresql':
+        delete_db()
+
+        index = 1
+        q = db.session.query(PostgresSequence).filter(PostgresSequence.relkind == 'S')
+        for p in q:
+            db.engine.execute('ALTER SEQUENCE {} RESTART WITH {}'.format(p.relname, index))
+            index += 100
+
+
+        return Lol()
+
+
     api = '/api/drop/'
     r = hit_api(api)
 
     # Change the starting sequences to try to find bugs in join conditions
-    index = 1
-    db.session.query(SqliteSequence).delete()
-    for table in all_models:
-        s = SqliteSequence(name=table.__tablename__, seq=index)
-        db.session.add(s)
-        index += 100
+    if app.config['DATABASE'] == 'sqlite':
+        index = 1
+        db.session.query(SqliteSequence).delete()
+        for table in all_models:
+            s = SqliteSequence(name=table.__tablename__, seq=index)
+            db.session.add(s)
+            index += 100
 
-    db.session.commit()
+        db.session.commit()
 
 
     return r
@@ -909,6 +933,8 @@ class TestDeleteHomework(unittest.TestCase):
         self.class_homework_id = class_homework.id
         self.class_homework2_id = class_homework2.id
 
+        db.session.close()
+
     def test_delete_homework_by_id(self):
         r = delete_homework(self.homework_id)
         self.assertEquals(r.status_code, 200)
@@ -1179,7 +1205,7 @@ class TestException(unittest.TestCase):
 
         j = r.json()
 
-        self.assertEquals(j['error'], "(sqlite3.IntegrityError) foreign key constraint failed")
+        #self.assertEquals(j['error'], "(sqlite3.IntegrityError) foreign key constraint failed")
 
 
 class TestParseDataFromQueryArgs(unittest.TestCase):

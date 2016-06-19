@@ -63,3 +63,6 @@ venv
 
 # Python Coverage
 .coverage
+
+# Local settings
+local_settings.py

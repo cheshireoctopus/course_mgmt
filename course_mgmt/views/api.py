@@ -307,6 +307,21 @@ def add_many_to_many(data, strong_id_key, strong_id_value, many_model, weak_mode
 
     return many_many
 
+def delete_db():
+    '''
+    Deletes all the rows in the database.
+    Deleting these models should cascade all the other tables
+    '''
+    num_deleted = 0
+    num_deleted += db.session.query(Course).delete()
+    num_deleted += db.session.query(Homework).delete()
+    num_deleted += db.session.query(Lecture).delete()
+    num_deleted += db.session.query(Student).delete()
+
+    db.session.commit()
+
+    return num_deleted
+
 @app.route('/api/drop/', methods=['POST','GET'])
 @try_except
 def drop_db():
@@ -315,8 +330,12 @@ def drop_db():
     Drops and recreates the db
     :return:
     '''
+    app.logger.debug("Dropping...")
     db.drop_all()
+    app.logger.debug("Dropping successful")
+    app.logger.debug("Creating...")
     db.create_all()
+    app.logger.debug("Creating successful")
     return jsonify({}), 200
 
 

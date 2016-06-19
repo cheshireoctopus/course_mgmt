@@ -1,1 +1,1 @@
-web: python run.py
+web: gunicorn course_mgmt:app

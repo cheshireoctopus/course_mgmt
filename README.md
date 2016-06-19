@@ -10,10 +10,19 @@ A simple application for teaching a class using GitHub.
 
 Set up for your own course:
 
-1. `pip install -r requirements.txt` at root (use of [virutal environments](http://docs.python-guide.org/en/latest/dev/virtualenvs/) is recommended):
+    `pip install -r requirements.txt` at root (use of [virutal environments](http://docs.python-guide.org/en/latest/dev/virtualenvs/) is recommended):
 
-2. Create a `.env` file at `course_mgmt/front_end/` root containing:
-  - `githubUsername='YOURGITHUBUSERNAME'`
+Course Management currently supports Sqlite3 and Postgresql. There are two options for establishing the database- a local settings file or by environment variables. From project root: 
+
+1. `touch course_mgmt/local_settings.py` and copy the following in to use Sqlite3
+
+    from settings import ConfigBase
+    class Config(ConfigBase):
+        SQLALCHEMY_DATABASE_URI = 'sqlite:///db.db'
+
+2. `EXPORT COURSE_MGMT_DATABASE=sqlite:///db.db`
+
+To create the database tables, at project root run `python manage.py db migrate`
 
 To boot the webserver, at project root run `python run.py`. Project is hosted on `localhost:5000`
 

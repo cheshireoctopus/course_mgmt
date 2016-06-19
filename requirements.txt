@@ -7,3 +7,5 @@ nose
 python-coveralls
 coverage
 markdown
+gunicorn
+flask-migrate
