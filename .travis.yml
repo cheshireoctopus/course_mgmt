@@ -6,11 +6,11 @@ install: pip install -r requirements.txt
 services:
  - postgresql
 before_script:
- - export SQLALCHEMY_DATABASE_URI=postgresql://postgres@localhost/course_mgmt
- - psql -c 'create database course_mgmt;' -U postgres
- - python manage.py db init
- - python manage.py db migrate
- - python manage.py db upgrade
+ - export SQLALCHEMY_DATABASE_URI='sqlite:///db.db'  # postgresql://postgres@localhost/course_mgmt
+# - psql -c 'create database course_mgmt;' -U postgres
+# - python manage.py db init
+# - python manage.py db migrate
+# - python manage.py db upgrade
 # command to run tests
 script: sh run_travis_test.sh
 after_script:
