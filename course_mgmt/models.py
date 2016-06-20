@@ -84,6 +84,9 @@ class BaseModel(db.Model):
         return to_json(self, self.__class__)
 
 
+class Teacher(BaseModel):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String)
 
 class Course(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
