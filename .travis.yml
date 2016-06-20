@@ -8,7 +8,7 @@ services:
 before_script:
  - export SQLALCHEMY_DATABASE_URI=postgresql://postgres@localhost/course_mgmt
  - psql -c 'create database course_mgmt;' -U postgres
-# - python manage.py db init
+ - python manage.py db init
  - python manage.py db migrate
  - python manage.py db upgrade
 # command to run tests
