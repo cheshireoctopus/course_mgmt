@@ -58,5 +58,5 @@ def index():
 def classes():
     return render_template('index.jade', data={'app': 'classes'})
 
-from views import *
+from course_mgmt.views import *
 

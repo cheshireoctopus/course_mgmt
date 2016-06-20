@@ -6,6 +6,7 @@ LEGAL_DATABASES = ['sqlite', 'postgresql']
 
 class ConfigBase(object):
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    basedir = os.path.abspath(os.path.dirname(__file__))
 
 class Config(ConfigBase):
     SQLALCHEMY_DATABASE_URI = os.environ.get('COURSE_MGMT_DATABASE', DATABASE_CONNECTION)
