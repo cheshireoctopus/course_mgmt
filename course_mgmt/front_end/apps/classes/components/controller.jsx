@@ -7,17 +7,22 @@ module.exports = React.createClass({
 	displayName: 'ClassesController',
 
 	propTypes: {
-		class: React.PropTypes.oneOfType([
+		classObj: React.PropTypes.oneOfType([
 			React.PropTypes.bool.isRequired,
 			React.PropTypes.object.isRequired,
 		]),
 		classes: React.PropTypes.array.isRequired,
+		courses: React.PropTypes.array.isRequired,
+		deleteClass: React.PropTypes.func.isRequired,
+		onEditClass: React.PropTypes.func.isRequired,
 		isLoading: React.PropTypes.bool.isRequired,
 		isShowingClass: React.PropTypes.bool.isRequired,
 		isShowingForm: React.PropTypes.bool.isRequired,
 		showClass: React.PropTypes.func.isRequired,
 		showClasses: React.PropTypes.func.isRequired,
 		studentsByClass: React.PropTypes.array.isRequired,
+		saveClass: React.PropTypes.func.isRequired,
+		onShowForm: React.PropTypes.func.isRequired,
 	},
 
 	render () {
@@ -36,11 +41,28 @@ module.exports = React.createClass({
 
 	renderClasses () {
 		if (this.props.isLoading) return <h3>Loading...</h3>
-		if (this.props.isShowingClass) return <Class {...this.props.class} students={this.props.studentsByClass} showClasses={this.props.showClasses} />
-		return <Classes classes={this.props.classes} showClass={this.props.showClass} />
+		if (this.props.isShowingClass)
+			return <Class {...this.props.classObj}
+					onEdit={this.props.onEditClass}
+					onDelete={this.props.deleteClass}
+					students={this.props.studentsByClass}
+					showClasses={this.props.showClasses}
+					/>
+
+
+		return <Classes
+					classes={this.props.classes}
+					showClass={this.props.showClass}
+					onShowForm={this.props.onShowForm}
+				/>
 	},
 
 	renderForm () {
-		return <ClassForm />
+		return <ClassForm
+				classObj={this.props.classObj}
+				courses={this.props.courses}
+				onClose={this.props.showClasses}
+				onSave={this.props.saveClass}
+				/>
 	}
 })
