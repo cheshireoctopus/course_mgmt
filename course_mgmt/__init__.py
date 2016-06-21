@@ -4,9 +4,6 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.engine import Engine
 from sqlalchemy import event
 from flask import render_template
-import markdown
-from flask import Markup
-import os
 from settings import Config, LEGAL_DATABASES
 
 
@@ -27,10 +24,10 @@ def parse_database_from_uri(database_uri):
 
 # Set static assets path
 app = Flask(__name__, static_folder='front_end/build', static_url_path='/static')
-#app.config['DATABASE'] = os.environ.get('COURSE_MGMT_DATABASE', 'postgres')
 app.config.from_object(Config)
+# Secret key is required for CSRF stuff change this to something more secure
+app.secret_key = app.config['SECRET_KEY']
 app.config['DATABASE'] = parse_database_from_uri(app.config['SQLALCHEMY_DATABASE_URI'])
-
 app.logger.debug("I am {}".format(app.config['DATABASE']))
 
 if app.config['DATABASE'] == 'sqlite':
@@ -43,11 +40,9 @@ if app.config['DATABASE'] == 'sqlite':
 
 db = SQLAlchemy(app)
 
+# Enable Jade templates
 app.jinja_env.add_extension('pyjade.ext.jinja.PyJadeExtension')
 
-
-# Secret key is required for CSR stuff change this to something more secure
-app.secret_key = 'abc123'
 
 # Routes
 @app.route('/')

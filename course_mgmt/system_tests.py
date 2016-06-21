@@ -1077,6 +1077,12 @@ class TestDeleteLecture(unittest.TestCase):
 
         db.session.add(course_lecture)
         db.session.add(course_lecture2)
+        db.session.flush()
+
+        course_homework = CourseHomework(course_id=course.id, homework_id=homework.id, course_lecture_id=course_lecture.id)
+        course_homework2 = CourseHomework(course_id=course.id, homework_id=homework2.id, course_lecture_id=course_lecture2.id)
+        db.session.add(course_homework)
+        db.session.add(course_homework2)
 
         clazz = Class(course_id=course.id, name='Python 101 2016', start_dt=datetime.now(), end_dt=datetime.now())
         db.session.add(clazz)
@@ -1086,6 +1092,13 @@ class TestDeleteLecture(unittest.TestCase):
         class_lecture2 = ClassLecture(class_id=clazz.id, lecture_id=lecture2.id)
         db.session.add(class_lecture)
         db.session.add(class_lecture2)
+        db.session.flush()
+
+        class_homework = ClassHomework(class_id=clazz.id, homework_id=homework.id, class_lecture_id=class_lecture.id)
+        class_homework2 = ClassHomework(class_id=clazz.id, homework_id=homework2.id, class_lecture_id=class_lecture2.id)
+        db.session.add(class_homework)
+        db.session.add(class_homework2)
+
 
         db.session.commit()
 
@@ -1093,10 +1106,16 @@ class TestDeleteLecture(unittest.TestCase):
         self.class_id = clazz.id
         self.lecture_id = lecture.id
         self.lecture2_id = lecture2.id
+        self.homework_id = homework.id
+        self.homework2_id = homework.id
         self.course_lecture_id = course_lecture.id
         self.course_lecture2_id = course_lecture2.id
+        self.course_homework_id = course_homework.id
+        self.course_homework2_id = course_homework2.id
         self.class_lecture_id = class_lecture.id
         self.class_lecture2_id = class_lecture2.id
+        self.class_homework_id = class_homework.id
+        self.class_homework2_id = class_homework2.id
 
         db.session.close()
 
@@ -1104,6 +1123,8 @@ class TestDeleteLecture(unittest.TestCase):
         db.session.query(Lecture).filter_by(id=self.lecture2_id).one()
         db.session.query(CourseLecture).filter_by(id=self.course_lecture2_id).one()
         db.session.query(ClassLecture).filter_by(id=self.class_lecture2_id).one()
+        db.session.query(Homework).filter_by(id=self.homework_id).one()
+        db.session.query(Homework).filter_by(id=self.homework2_id).one()
 
     def test_delete_lecture(self):
         print "lecture id is", self.lecture_id
@@ -1160,12 +1181,6 @@ class TestDeleteLecture(unittest.TestCase):
         db.session.query(ClassLecture).filter_by(id=self.class_lecture_id).one()
 
         self.assert_lecture2_not_deleted()
-
-    def test_delete_homework_does_not_delete_lecture(self):
-        raise NotImplementedError()
-
-
-
 
 
 class TestInitializations(unittest.TestCase):

@@ -163,7 +163,7 @@ class CourseHomework(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
     course_id = db.Column(db.Integer, db.ForeignKey('course.id', ondelete='CASCADE'), nullable=False)
     homework_id = db.Column(db.Integer, db.ForeignKey('homework.id', ondelete='CASCADE'), nullable=False)
-    course_lecture_id = db.Column(db.Integer, db.ForeignKey('course_lecture.id'), nullable=True)
+    course_lecture_id = db.Column(db.Integer, db.ForeignKey('course_lecture.id', ondelete='SET NULL'), nullable=True)
 
     __table_args__ = (db.UniqueConstraint('course_id', 'homework_id'), {'sqlite_autoincrement': True})
 
