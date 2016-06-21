@@ -18,12 +18,9 @@ module.exports = React.createClass({
 		}
 	},
 
-	componentDidMount () {
-		if (!_.isEmpty(this.props.course)) this.refs.courseName.value = this.props.course.get('name')
-	},
-
 	render () {
 		let btnText = _.isEmpty(this.props.course) ? 'Create' : 'Save'
+		let courseName = _.isEmpty(this.props.course) ? '' : this.props.course.get('name')
 
 		return (
 			<div className="row">
@@ -33,7 +30,7 @@ module.exports = React.createClass({
 							<h3>Create Course</h3>
 							<div className="form-group">
 								<label htmlFor="courseName" className="control-label">Course Name</label>
-								<input ref="courseName" name="courseName" className="form-control" placeholder="Course Name" />
+								<input ref="courseName" name="courseName" className="form-control" placeholder="Course Name" defaultValue={courseName}/>
 							</div>
 							<div className="form-group text-right">
 								<button className="btn btn-primary" onClick={this.handleFormSave}>{btnText}</button>

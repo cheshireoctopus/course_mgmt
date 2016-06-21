@@ -2,8 +2,9 @@ var actions = require('classes/constants').ACTIONS
 var Immutable = require('immutable')
 
 let initialState = Immutable.Map({
-	class: {},
-	classes: [],
+	classObj: Immutable.Map(),
+	classes: Immutable.List(),
+	courses: Immutable.List(),
 	isLoading: false,
 	isShowingClass: false,
 	studentsByClass: [],
@@ -16,8 +17,18 @@ module.exports = (state = initialState, action) => {
 			return receiveClass(state, action.payload)
 		case actions.RECEIVE_CLASSES:
 			return receiveClasses(state, action.payload)
+		case actions.RECEIVE_COURSES:
+			return receiveCourses(state, action.payload)
 		case actions.RECEIVE_STUDENTS:
 			return receiveStudents(state, action.payload)
+		case actions.RENDER_CLASS:
+			return renderClass(state)
+		case actions.RENDER_CLASSES:
+			return renderClasses(state)
+		case actions.SAVE_FORM:
+			return saveForm(state, action.payload)
+		case actions.RENDER_FORM:
+			return renderForm(state, action.payload)
 		case actions.TOGGLE_LOADING:
 			return toggleLoading(state, action.payload)
 		default:
@@ -26,24 +37,59 @@ module.exports = (state = initialState, action) => {
 }
 
 function receiveClass (state, payload) {
-	console.log(payload)
 	return state.merge({
 		isShowingClass: true,
-		class: payload.classObj,
+		classObj: payload.classObj,
 	})
 }
 
 function receiveClasses (state, payload) {
+	let { classes } = payload
+
 	return state.merge({
-		isShowingClass: false,
-		classes: payload.classes,
-		studentsByClass: [],
+		classes: classes,
+	})
+}
+
+function receiveCourses (state, payload) {
+	let { courses } = payload
+
+	return state.merge({
+		courses: courses,
 	})
 }
 
 function receiveStudents (state, payload) {
 	return state.merge({
 		studentsByClass: payload.students,
+	})
+}
+
+function renderClass (state) {
+	return state.merge({
+		isShowingClass: true,
+		isShowingForm: false,
+	})
+}
+
+function renderClasses (state) {
+	return state.merge({
+		isShowingClass: false,
+		isShowingForm: false,
+	})
+}
+
+function saveForm (state, paylaod) {
+
+}
+
+function renderForm (state, payload) {
+	let { classObj } = payload
+
+	return state.merge({
+		isShowingClass: false,
+		isShowingForm: true,
+		classObj,
 	})
 }
 
