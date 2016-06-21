@@ -1333,18 +1333,7 @@ class LectureView(BaseView):
 
     @try_except
     def delete(self):
-        data = extract_data()
-
-        lecture_ids = []
-        course_lectures = []
-        class_lectures = []
-
-        for lecture in data:
-            if 'course_id' not in lecture and 'class_id' not in lecture:
-                lecture_ids.append(lecture['id'])
-            else:
-                if 'course_id' in lecture:
-                    pass
+        return hardcore_delete(Lecture)
 
     @route('/<int:lecture_id>/attendance/', methods=['GET'])
     @try_except
@@ -1549,6 +1538,133 @@ def hardcore_update(model):
     db.session.commit()
 
     return jsonify({"meta": len(data), "data": data}), 200
+
+
+
+def hardcore_delete(model):
+    '''
+    This method can be used by both Homework and Lecture
+
+    This API accepts 5 different types of input to cover three distinct cases:
+
+        1. Delete a new Homework
+            "id" is present; no "course_id" or "class_id" are present
+        2. Delete the association between a Homework and a Course
+            A: "course_homework_id" is present
+            OR
+            B: "id AND "course_id" are present
+        3. Delete the association between a Homework and a Class
+            A: "class_homework_id" is present
+            OR
+            B: "id" AND "class_id" are present
+    '''
+
+    if model == Homework:
+        course_model_id_key = 'course_homework_id'
+        class_model_id_key = 'class_homework_id'
+        model_id_key = 'homework_id'
+        CourseModel = CourseHomework
+        ClassModel = ClassHomework
+    elif model == Lecture:
+        course_model_id_key = 'course_lecture_id'
+        class_model_id_key = 'class_lecture_id'
+        model_id_key = 'lecture_id'
+        CourseModel = CourseLecture
+        ClassModel = ClassLecture
+    else:
+        raise ServerError("Only Homework and Lecture can use hardcore_delete")
+
+    data = extract_data()
+    app.logger.debug("Data is {}".format(data))
+    app.logger.debug("Model is {}".format(model))
+
+    model_ids = []
+    class_model_ids = []
+    course_model_ids = []
+
+    course_models = []  # {homework_id: 1, course_id: 1}
+    class_models = []   # {homework_id: 1, class_id: 1}
+
+    app.logger.debug("data is {}".format(data))
+
+    for obj in data:
+        id = obj['id'] if 'id' in obj else False
+        class_id = obj['class_id'] if 'class_id' in obj else False
+        course_id = obj['course_id'] if 'course_id' in obj else False
+        course_model_id = obj[course_model_id_key] if course_model_id_key in obj else False
+        class_model_id = obj[class_model_id_key] if class_model_id_key in obj else False
+
+        if sum(map(bool, [id, course_model_id, class_model_id])) > 1:
+            app.logger.exception("id = {}, course_homework_id={}, class_homework_id={}".format(id, course_model_id, class_model_id))
+            raise UserError("id, {}, and {} should not be mixed".format(course_model_id_key, class_model_id_key))
+
+        if sum(map(bool, [class_id, course_id, course_model_id, class_model_id])) > 1:
+            raise UserError("{} and {} and course_id and class_id cannot be mixed".format(course_model_id_key, class_model_id_key))
+
+        if id:
+            d = {
+                model_id_key: id
+            }
+            if class_id:
+                d['class_id'] = obj['class_id']
+                class_models.append(d)
+            elif course_id:
+                d['course_id'] = obj['course_id']
+                course_models.append(d)
+            else:
+                model_ids.append(obj['id'])
+
+        if course_model_id:
+            course_model_ids.append(course_model_id)
+
+        if class_model_id:
+            class_model_ids.append(class_model_id)
+
+    app.logger.debug("model_ids {}".format(model_ids))
+    app.logger.debug("course_models {}".format(course_models))
+    app.logger.debug("class_models {}".format(class_models))
+
+    # Transform case 2B into 2A
+    if course_models:
+        q = db.session.query(CourseModel)
+        #q = q.filter(or_(*(and_(CourseModel.homework_id == course_homework['homework_id'], CourseHomework.course_id == course_homework['course_id']) for course_homework in course_models)))
+        q = q.filter(or_(*(and_(getattr(CourseModel, model_id_key) == course_model[model_id_key], CourseModel.course_id == course_model['course_id']) for course_model in course_models)))
+
+        course_model_ids.extend(course_model.id for course_model in q.all())
+
+    # Transform case 3B into 3A
+    if class_models:
+        q = db.session.query(ClassModel)
+        #q = q.filter(or_(*(and_(ClassHomework.homework_id == class_homework['homework_id'], ClassHomework.class_id == class_homework['class_id']) for class_homework in class_models)))
+        q = q.filter(or_(*(and_(getattr(ClassModel, model_id_key) == class_model[model_id_key], ClassModel.class_id == class_model['class_id']) for class_model in class_models)))
+
+        class_model_ids.extend(class_model.id for class_model in q.all())
+
+    num_deleted = 0
+
+    app.logger.debug("class_model_ids {}".format(class_model_ids))
+
+    # Delete course_homeworks
+    if course_model_ids:
+        num_deleted += db.session.query(CourseModel).filter(CourseModel.id.in_(course_model_ids)).delete(synchronize_session=False)
+
+    # Delete class_homeworks
+    if class_model_ids:
+        num_deleted += db.session.query(ClassModel).filter(ClassModel.id.in_(class_model_ids)).delete(synchronize_session=False)
+
+    # Delete homeworks
+    if model_ids:
+        num_deleted += db.session.query(model).filter(model.id.in_((id for id in model_ids))).delete(synchronize_session=False)
+
+    db.session.commit()
+
+    return jsonify({"meta": {"num_deleted": num_deleted}, "data": {}})
+
+
+
+
+
+
 
 
 class HomeworkView(BaseView):
@@ -1786,6 +1902,7 @@ class HomeworkView(BaseView):
 
     @try_except
     def delete(self):
+        return hardcore_delete(Homework)
         '''
         This API accepts 5 different types of input to cover three distinct cases:
 
@@ -1834,18 +1951,18 @@ class HomeworkView(BaseView):
                     class_homeworks.append(d)
                 elif course_id:
                     d['course_id'] = obj['course_id']
-                    course_homeworks.append(obj)
+                    course_homeworks.append(d)
                 else:
                     homework_ids.append(obj['id'])
 
             if course_homework_id:
                 course_homework_ids.append(course_homework_id)
 
-            if class_homework_ids:
-                class_homeworks.append(class_homework_id)
+            if class_homework_id:
+                app.logger.debug("YOU SHOULD SEE THIS")
+                class_homework_ids.append(class_homework_id)
 
-
-
+        app.logger.debug("course_homeworks {}".format(course_homeworks))
 
         # Transform case 2B into 2A
         if course_homeworks:
@@ -1864,11 +1981,11 @@ class HomeworkView(BaseView):
         num_deleted = 0
 
         # Delete course_homeworks
-        if course_homeworks:
+        if course_homework_ids:
             num_deleted += db.session.query(CourseHomework).filter(CourseHomework.id.in_(course_homework_ids)).delete(synchronize_session=False)
 
         # Delete class_homeworks
-        if class_homeworks:
+        if class_homework_ids:
             num_deleted += db.session.query(ClassHomework).filter(ClassHomework.id.in_(class_homework_ids)).delete(synchronize_session=False)
 
         # Delete homeworks

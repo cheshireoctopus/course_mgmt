@@ -428,8 +428,8 @@ def delete_homework(homework_id):
     return hit_api(api, data, method=method)
 
 def delete_course_homework(id=None, course_id=None, course_homework_id=None):
-    assert not id ^ course_id
-    assert (id and course_id) ^ course_homework_id
+    assert not bool(id) ^ bool(course_id)
+    assert (bool(id) and bool(course_id)) ^ bool(course_homework_id)
 
     case_1 = True if id and course_id else False
 
@@ -444,8 +444,9 @@ def delete_course_homework(id=None, course_id=None, course_homework_id=None):
     return hit_api(api, data, method=method)
 
 def delete_class_homework(id=None, class_id=None, class_homework_id=None):
-    assert not id ^ class_id
-    assert (id and class_id) ^ class_homework_id
+    print "id {} class_id {} class_homework_id {}".format(id, class_id, class_homework_id)
+    assert not bool(id) ^ bool(class_id)
+    assert (bool(id) and bool(class_id)) ^ bool(class_homework_id)
 
     case_1 = True if id and class_id else False
 
@@ -454,6 +455,56 @@ def delete_class_homework(id=None, class_id=None, class_homework_id=None):
     data = {
         'data': [
             {'id': id, 'class_id': class_id} if case_1 else {'class_homework_id': class_homework_id}
+        ]
+    }
+
+    return hit_api(api, data, method=method)
+
+
+def delete_lecture(lecture_id):
+    '''
+    Used to delete a Lecture
+    '''
+    api = '/api/lecture/'
+    method = 'DELETE'
+    data = {
+        'data': [
+            {
+                'id': lecture_id
+            }
+        ]
+    }
+
+    return hit_api(api, data, method=method)
+
+def delete_course_lecture(id=None, course_id=None, course_lecture_id=None):
+    assert not bool(id) ^ bool(course_id)
+    assert (bool(id) and bool(course_id)) ^ bool(course_lecture_id)
+
+    case_1 = True if id and course_id else False
+
+    api = '/api/lecture/'
+    method = 'DELETE'
+    data = {
+        'data': [
+            {'id': id, 'course_id': course_id} if case_1 else {'course_lecture_id': course_lecture_id}
+        ]
+    }
+
+    return hit_api(api, data, method=method)
+
+def delete_class_lecture(id=None, class_id=None, class_lecture_id=None):
+    print "id {} class_id {} class_lecture_id {}".format(id, class_id, class_lecture_id)
+    assert not bool(id) ^ bool(class_id)
+    assert (bool(id) and bool(class_id)) ^ bool(class_lecture_id)
+
+    case_1 = True if id and class_id else False
+
+    api = '/api/lecture/'
+    method = 'DELETE'
+    data = {
+        'data': [
+            {'id': id, 'class_id': class_id} if case_1 else {'class_lecture_id': class_lecture_id}
         ]
     }
 
@@ -896,7 +947,7 @@ class TestDeleteHomework(unittest.TestCase):
     def setUp(self):
         # Drop and recreate the database
         self.assertEquals(200, drop_and_create_db().status_code)
-        create_interference()
+        #create_interference()
 
         course = Course(name='Python 101')
         db.session.add(course)
@@ -926,20 +977,193 @@ class TestDeleteHomework(unittest.TestCase):
 
         db.session.commit()
 
+        self.course_id = course.id
+        self.class_id = clazz.id
         self.homework_id = homework.id
-        self.homework2_id = homework.id
+        self.homework2_id = homework2.id
         self.course_homework_id = course_homework.id
-        self.course_homework2_id = course_homework.id
+        self.course_homework2_id = course_homework2.id
         self.class_homework_id = class_homework.id
         self.class_homework2_id = class_homework2.id
 
         db.session.close()
 
-    def test_delete_homework_by_id(self):
+    def assert_homework2_not_deleted(self):
+        db.session.query(Homework).filter_by(id=self.homework2_id).one()
+        db.session.query(CourseHomework).filter_by(id=self.course_homework2_id).one()
+        db.session.query(ClassHomework).filter_by(id=self.class_homework2_id).one()
+
+    def test_delete_homework(self):
         r = delete_homework(self.homework_id)
         self.assertEquals(r.status_code, 200)
 
         self.assertRaises(NoResultFound, db.session.query(Homework).filter_by(id=self.homework_id).one)
+
+        self.assert_homework2_not_deleted()
+
+    def test_delete_class_homework_by_id(self):
+        r = delete_class_homework(class_homework_id=self.class_homework_id)
+        self.assertEquals(r.status_code, 200)
+
+        self.assertRaises(NoResultFound, db.session.query(ClassHomework).filter_by(id=self.class_homework_id).one)
+
+        db.session.query(Homework).filter_by(id=self.homework_id).one()
+        db.session.query(CourseHomework).filter_by(id=self.course_homework_id).one()
+
+        self.assert_homework2_not_deleted()
+
+    def test_delete_class_homework_by_composite(self):
+        r = delete_class_homework(id=self.homework_id, class_id=self.class_id)
+        self.assertEquals(r.status_code, 200)
+
+        self.assertRaises(NoResultFound, db.session.query(ClassHomework).filter_by(id=self.class_homework_id).one)
+
+        db.session.query(Homework).filter_by(id=self.homework_id).one()
+        db.session.query(CourseHomework).filter_by(id=self.course_homework_id).one()
+
+        self.assert_homework2_not_deleted()
+
+    def test_delete_course_homework_by_id(self):
+        r = delete_course_homework(course_homework_id=self.course_homework_id)
+        self.assertEquals(r.status_code, 200)
+
+        self.assertRaises(NoResultFound, db.session.query(CourseHomework).filter_by(id=self.course_homework_id).one)
+
+        db.session.query(Homework).filter_by(id=self.homework_id).one()
+        db.session.query(ClassHomework).filter_by(id=self.class_homework_id).one()
+
+        self.assert_homework2_not_deleted()
+
+    def test_delete_course_homework_by_composite(self):
+        db.session.query(CourseHomework).filter_by(id=self.course_homework2_id).one()
+        r = delete_course_homework(id=self.homework_id, course_id=self.course_id)
+        self.assertEquals(r.status_code, 200)
+
+        self.assertRaises(NoResultFound, db.session.query(CourseHomework).filter_by(id=self.course_homework_id).one)
+
+        db.session.query(Homework).filter_by(id=self.homework_id)
+
+        db.session.query(Homework).filter_by(id=self.homework_id).one()
+        db.session.query(ClassHomework).filter_by(id=self.class_homework_id).one()
+
+        self.assert_homework2_not_deleted()
+
+
+class TestDeleteLecture(unittest.TestCase):
+    def setUp(self):
+        # Drop and recreate the database
+        self.assertEquals(200, drop_and_create_db().status_code)
+        #create_interference()
+
+        course = Course(name='Python 101')
+        db.session.add(course)
+
+        lecture = Lecture(name='Lecture 1', description="the first lecture")
+        db.session.add(lecture)
+
+        homework = Homework(name='hmk for lecture 1')
+        db.session.add(homework)
+
+        lecture2 = Lecture(name='Lecture 2', description="the second lecture")
+        db.session.add(lecture2)
+
+        homework2 = Homework(name='hmk for lecture 2')
+        db.session.add(homework2)
+
+        db.session.flush()
+
+        course_lecture = CourseLecture(course_id=course.id, lecture_id=lecture.id)
+        course_lecture2 = CourseLecture(course_id=course.id, lecture_id=lecture2.id)
+
+        db.session.add(course_lecture)
+        db.session.add(course_lecture2)
+
+        clazz = Class(course_id=course.id, name='Python 101 2016', start_dt=datetime.now(), end_dt=datetime.now())
+        db.session.add(clazz)
+        db.session.flush()
+
+        class_lecture = ClassLecture(class_id=clazz.id, lecture_id=lecture.id)
+        class_lecture2 = ClassLecture(class_id=clazz.id, lecture_id=lecture2.id)
+        db.session.add(class_lecture)
+        db.session.add(class_lecture2)
+
+        db.session.commit()
+
+        self.course_id = course.id
+        self.class_id = clazz.id
+        self.lecture_id = lecture.id
+        self.lecture2_id = lecture2.id
+        self.course_lecture_id = course_lecture.id
+        self.course_lecture2_id = course_lecture2.id
+        self.class_lecture_id = class_lecture.id
+        self.class_lecture2_id = class_lecture2.id
+
+        db.session.close()
+
+    def assert_lecture2_not_deleted(self):
+        db.session.query(Lecture).filter_by(id=self.lecture2_id).one()
+        db.session.query(CourseLecture).filter_by(id=self.course_lecture2_id).one()
+        db.session.query(ClassLecture).filter_by(id=self.class_lecture2_id).one()
+
+    def test_delete_lecture(self):
+        print "lecture id is", self.lecture_id
+        r = delete_lecture(self.lecture_id)
+        self.assertEquals(r.status_code, 200)
+
+        self.assertRaises(NoResultFound, db.session.query(Lecture).filter_by(id=self.lecture_id).one)
+
+        self.assert_lecture2_not_deleted()
+
+    def test_delete_class_lecture_by_id(self):
+        r = delete_class_lecture(class_lecture_id=self.class_lecture_id)
+        self.assertEquals(r.status_code, 200)
+
+        self.assertRaises(NoResultFound, db.session.query(ClassLecture).filter_by(id=self.class_lecture_id).one)
+
+        db.session.query(Lecture).filter_by(id=self.lecture_id).one()
+        db.session.query(CourseLecture).filter_by(id=self.course_lecture_id).one()
+
+        self.assert_lecture2_not_deleted()
+
+    def test_delete_class_lecture_by_composite(self):
+        r = delete_class_lecture(id=self.lecture_id, class_id=self.class_id)
+        self.assertEquals(r.status_code, 200)
+
+        self.assertRaises(NoResultFound, db.session.query(ClassLecture).filter_by(id=self.class_lecture_id).one)
+
+        db.session.query(Lecture).filter_by(id=self.lecture_id).one()
+        db.session.query(CourseLecture).filter_by(id=self.course_lecture_id).one()
+
+        self.assert_lecture2_not_deleted()
+
+    def test_delete_course_lecture_by_id(self):
+        r = delete_course_lecture(course_lecture_id=self.course_lecture_id)
+        self.assertEquals(r.status_code, 200)
+
+        self.assertRaises(NoResultFound, db.session.query(CourseLecture).filter_by(id=self.course_lecture_id).one)
+
+        db.session.query(Lecture).filter_by(id=self.lecture_id).one()
+        db.session.query(ClassLecture).filter_by(id=self.class_lecture_id).one()
+
+        self.assert_lecture2_not_deleted()
+
+    def test_delete_course_lecture_by_composite(self):
+        db.session.query(CourseLecture).filter_by(id=self.course_lecture2_id).one()
+        r = delete_course_lecture(id=self.lecture_id, course_id=self.course_id)
+        self.assertEquals(r.status_code, 200)
+
+        self.assertRaises(NoResultFound, db.session.query(CourseLecture).filter_by(id=self.course_lecture_id).one)
+
+        db.session.query(Lecture).filter_by(id=self.lecture_id)
+
+        db.session.query(Lecture).filter_by(id=self.lecture_id).one()
+        db.session.query(ClassLecture).filter_by(id=self.class_lecture_id).one()
+
+        self.assert_lecture2_not_deleted()
+
+    def test_delete_homework_does_not_delete_lecture(self):
+        raise NotImplementedError()
+
 
 
 

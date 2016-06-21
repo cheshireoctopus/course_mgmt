@@ -171,7 +171,7 @@ class ClassHomework(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
     class_id = db.Column(db.Integer, db.ForeignKey('class.id', ondelete='CASCADE'), nullable=False)
     homework_id = db.Column(db.Integer, db.ForeignKey('homework.id', ondelete='CASCADE'), nullable=False)
-    class_lecture_id = db.Column(db.Integer, db.ForeignKey('class_lecture.id'), nullable=True)
+    class_lecture_id = db.Column(db.Integer, db.ForeignKey('class_lecture.id', ondelete='SET NULL'), nullable=True)
 
     __table_args__ = (db.UniqueConstraint('class_id', 'homework_id'), {'sqlite_autoincrement': True})
 
