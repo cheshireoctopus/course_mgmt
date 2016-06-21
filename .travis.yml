@@ -5,8 +5,9 @@ python:
 install: pip install -r requirements.txt
 services:
  - postgresql
+env:
+ - COURSE_MGMT_DATABASE=sqlite:///db.db # postgresql://postgres@localhost/course_mgmt
 before_script:
- - export COURSE_MGMT_DATABASE=sqlite:///db.db  # postgresql://postgres@localhost/course_mgmt
 # - psql -c 'create database course_mgmt;' -U postgres
 # - python manage.py db init
 # - python manage.py db migrate
