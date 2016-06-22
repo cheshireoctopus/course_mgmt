@@ -311,11 +311,6 @@ def add_many_to_many(data, strong_id_key, strong_id_value, many_model, weak_mode
 
 def hardcore_update(model):
     '''
-    Not sure if i want to use this
-    but this could be shared by the PUT for lecture and homework ...
-    :param model:
-    :return:
-
     This is used for both Lecture and Homework:
 
     When a Class is created, the Class Homework and Class Lectures are automatically instantiated
@@ -609,7 +604,139 @@ def hardcore_delete(model):
 
     return jsonify({"meta": {"num_deleted": num_deleted}, "data": {}})
 
+def hardcore_post(model):
+    '''
+    This function is shared between Homework and Lecture.
 
+    :param model:
+    :return:
+    '''
+
+    if model == Homework:
+        course_model_id_key = 'course_homework_id'
+        class_model_id_key = 'class_homework_id'
+        model_id_key = 'homework_id'
+        CourseModel = CourseHomework
+        ClassModel = ClassHomework
+        post_keys = ['name']
+        Initialization = Assignment
+    elif model == Lecture:
+        course_model_id_key = 'course_lecture_id'
+        class_model_id_key = 'class_lecture_id'
+        model_id_key = 'lecture_id'
+        CourseModel = CourseLecture
+        ClassModel = ClassLecture
+        post_keys = ['name', 'description']
+        Initialization = Attendance
+    else:
+        raise ServerError("Only Homework and Lecture can use hardcore_post")
+
+    data = extract_data()
+
+    # This ensures order of the response is indetical to the request
+    ordered_models = []
+
+    # This contains the new Models to create (where "id" is not present)
+    models = []
+
+    # Check each object in the request, determine if it is New and/or needs to be assocaited to Course/Class
+    for obj in data:
+        model_inst = model()
+
+        if 'course_id' in obj:
+            model_inst.course_id = obj['course_id']
+
+        if 'class_id' in obj:
+            model_inst.class_id = obj['class_id']
+            if model == Lecture:
+                # ClassLecture requires a dt
+                if 'dt' not in obj:
+                        raise UserError("Class Models must have a dt attribute")
+                model_inst.dt = obj['dt']
+
+        if not 'id' in obj:
+            # This is a new Model to create
+            json_to_model(model=model, obj=obj, keys=post_keys, model_inst=model_inst)
+
+            models.append(model_inst)
+        else:
+            # This is a previous model probably to associate
+            # Not sure if I should throw in error if 'course_id' or 'class_id' isn't present
+            model_inst.id = obj['id']
+
+        ordered_models.append(model_inst)
+
+    # Save only the newly created Model
+    db.session.bulk_save_objects(models, return_defaults=True)
+
+    ## Association lists
+    course_models = []
+    class_models = []
+
+    # Check each model and determine if it needs to be associated
+    for model_inst in ordered_models:
+        if hasattr(model_inst, 'course_id'):
+            course_model = CourseModel(course_id=model_inst.course_id)
+            setattr(course_model, model_id_key, model_inst.id)
+            model_inst.course_model = course_model
+            course_models.append(course_model)
+
+        if hasattr(model_inst, 'class_id'):
+            class_model = ClassModel(class_id=model_inst.class_id)
+            setattr(class_model, model_id_key, model_inst.id)
+            if model == Lecture:
+                # ClassLecture requires a dt
+                obj = {'dt': model_inst.dt}
+                class_model = json_to_model(model=ClassModel, obj=obj, keys=obj.keys(), model_inst=class_model)
+            model_inst.class_model = class_model
+            class_models.append(class_model)
+
+    if course_models:
+        db.session.bulk_save_objects(course_models, return_defaults=True)
+
+    if class_models:
+        db.session.bulk_save_objects(class_models, return_defaults=True)
+
+        # Instantiate all of the Attendance
+        class_ids = [class_model.class_id for class_model in class_models]
+
+        # Minimize harm from N^2 loop
+        class_models_maps = defaultdict(list)
+        for class_model in class_models:
+            class_models_maps[class_model.class_id].append(class_model)
+
+        class_students = db.session.query(ClassStudent).filter(ClassStudent.class_id.in_(class_ids)).all()
+        if class_students:
+            # If there are any class students, create the Attendance or Assignments
+            initializations = []
+
+            for class_student in class_students:
+                for class_model in class_models_maps[class_student.class_id]:
+                    initialization = Initialization(class_student_id=class_student.id)
+                    setattr(initialization, class_model_id_key, class_model.id)
+                    initializations.append(initialization)
+
+            db.session.bulk_save_objects(initializations, return_defaults=False)
+
+    # Prepare response
+    rets = []
+    for model_inst in ordered_models:
+        ret = model_inst.json
+
+        if hasattr(model_inst, 'course_model'):
+            ret[course_model_id_key] = model_inst.course_model.id
+            ret['course_id'] = model_inst.course_model.course_id
+
+        if hasattr(model_inst, 'class_model'):
+            ret[class_model_id_key] = model_inst.class_model.id
+            ret['class_id'] = model_inst.class_model.class_id
+            # Shouldn't the date be included here ?
+
+        rets.append(ret)
+
+    db.session.commit()
+
+    return jsonify({"meta": {"len": len(rets)}, "data": rets})
 
 def delete_db():
     '''
@@ -1129,112 +1256,7 @@ class LectureView(BaseView):
 
     @try_except
     def post(self):
-        data = extract_data()
-
-        # This ensures order of the response is indetical to the request
-        ordered_lectures = []
-
-        # This contains the new Lectures to create (where "id" is not present)
-        lectures = []
-
-        # Check each object in the request, determine if it is New and/or needs to be assocaited to Course/Class
-        for obj in data:
-            lecture = Lecture()
-
-            if 'course_id' in obj:
-                lecture.course_id = obj['course_id']
-
-            if 'class_id' in obj:
-                lecture.class_id = obj['class_id']
-                if 'dt' not in obj:
-                        raise UserError("Class Lectures must have a dt attribute")
-                lecture.dt = obj['dt']
-
-            if not 'id' in obj:
-                # This is a new Lecture to create
-                keys = self.post_keys[:]
-                # Class Lectures require a dt, whereas Course lectures do not.
-                # ?? Do I need to enforce this?
-
-                json_to_model(model=Lecture, obj=obj, keys=keys, model_inst=lecture)
-                #lecture.name = obj['name']
-                #lecture.description = obj['description']
-                #lecture.dt = datetime.strptime(date_format, obj['dt'])
-
-                lectures.append(lecture)
-            else:
-                # This is a previous lecture probably to associate
-                # Not sure if I should throw in error if 'course_id' or 'class_id' isn't present
-                lecture.id = obj['id']
-
-            ordered_lectures.append(lecture)
-
-        # Save only the newly created Lecture
-        db.session.bulk_save_objects(lectures, return_defaults=True)
-
-        ## Association lists
-        course_lectures = []
-        class_lectures = []
-
-        # Check each lecture and determine if it needs to be associated
-        for lecture in ordered_lectures:
-            if hasattr(lecture, 'course_id'):
-                course_lecture = CourseLecture(lecture_id=lecture.id, course_id=lecture.course_id)
-                lecture.course_lecture = course_lecture
-                course_lectures.append(course_lecture)
-
-            if hasattr(lecture, 'class_id'):
-                class_lecture = ClassLecture(lecture_id=lecture.id, class_id=lecture.class_id)
-                obj = {'dt': lecture.dt}
-                class_lecture = json_to_model(model=ClassLecture, obj=obj, keys=obj.keys(), model_inst=class_lecture)
-                lecture.class_lecture = class_lecture
-                class_lectures.append(class_lecture)
-
-        if course_lectures:
-            for course_lecture in course_lectures:
-                app.logger.debug(course_lecture.json)
-            db.session.bulk_save_objects(course_lectures, return_defaults=True)
-
-        if class_lectures:
-            db.session.bulk_save_objects(class_lectures, return_defaults=True)
-
-            # Instantiate all of the Attendance
-            class_ids = [class_lecture.class_id for class_lecture in class_lectures]
-
-            # Minimize harm from N^2 loop
-            class_lectures_maps = defaultdict(list)
-            for class_lecture in class_lectures:
-                class_lectures_maps[class_lecture.class_id].append(class_lecture)
-
-            class_students = db.session.query(ClassStudent).filter(ClassStudent.class_id.in_(class_ids)).all()
-            if class_students:
-                attendances = []
-
-                for class_student in class_students:
-                    for class_lecture in class_lectures_maps[class_student.class_id]:
-                        attendances.append(Attendance(class_lecture_id=class_lecture.id,
-                                                      class_student_id=class_student.id))
-
-                db.session.bulk_save_objects(attendances, return_defaults=False)
-
-        # Prepare response
-        rets = []
-        for lecture in ordered_lectures:
-            ret = lecture.json
-
-            if hasattr(lecture, 'course_lecture'):
-                ret['course_lecture_id'] = lecture.course_lecture.id
-                ret['course_id'] = lecture.course_lecture.course_id
-
-            if hasattr(lecture, 'class_lecture'):
-                ret['class_lecture_id'] = lecture.class_lecture.id
-                ret['class_id'] = lecture.class_lecture.class_id
-
-            rets.append(ret)
-
-        db.session.commit()
-
-        return jsonify({"meta": {"len": len(rets)}, "data": rets})
+        return hardcore_post(Lecture)
 
     @try_except
     def put(self):
@@ -1322,163 +1344,7 @@ class HomeworkView(BaseView):
 
     @try_except
     def post(self):
-        '''
-        /api/homework handles multiple operations, which can be mixed and matched in the same request
-            1. Create a new Homework
-                No "id" is present; no "course_id" or "class_id" are present
-            2. Create a new Homework and associate it to a previously created Course
-                No "id" is present; a "course_id" is present
-            3. Create a new Homework and associate it to a previously created Class
-                No "id" is present; a "class_id" is present
-            4. Associate a previously created Homework with a previously created Course
-                An "id" is present; a "course_id" is present
-            5. Associate a previously created Homework with a previously created Class
-                An "id" is present; a "class_id" is present
-
-        For example, a request containing each of those 5 operations, in order, would look like this:
-            {
-                "data": [
-                    {
-                       "name": "Python Metaclasses"
-                    },
-                    {
-                       "name": "Python variables", "course_id": 1
-                    },
-                    {
-                       "name": "Python loops", "class_id": 10
-                    },
-                    {
-                       "id": 1, "course_id": 1
-                    },
-                    {
-                       "id": 1, "class_id": 10
-                    },
-                ]
-            }
-
-        This API will perform all the operations and return the following response:
-            {
-                "data": [
-                    {
-                       "id": 1, "name": "Python Metaclasses"
-                    },
-                    {
-                       "id": 2, "name": "Python variables", "course_homework_id": 500, "course_id": 1
-                    },
-                    {
-                       "name": "Python loops", "class_homework_id": 1001, "class_id": 10
-                    },
-                    {
-                       "id": 1, "course_homework_id": 501, "course_id": 1, "name": ""
-                    },
-                    {
-                       "id": 1, "class_homework_id": 1002, ""class_id": 10, name": ""
-                    },
-                ]
-            }
-
-        Note how the response is returned in the exact same order as the Request
-
-        Note how "id"s have been added to the newly created Homeworks
-
-        Note how "course_homework_id" and "class_homework_id" are added to those that were associated accordingly
-
-        Note how "name" is empty for cases 4 and 5.
-        '''
-
-
-        #app.logger.debug(" IN HOMEWORK YO")
-        data = extract_data()
-
-        # To ensure the order of the response is identical to the request, use this array
-        ordered_homeworks = []
-
-        # This contains the new Homeworks to create (where "id" is not present")
-        homeworks = []
-
-        # Check each object in the request, determine if it is New and/or if it needs to be associated to Course/Class
-        for obj in data:
-            homework = Homework()
-
-            if 'course_id' in obj:
-                homework.course_id = obj['course_id']
-
-            if 'class_id' in obj:
-                homework.class_id = obj['class_id']
-
-            if not 'id' in obj:
-                # This is a new Homework to create
-                json_to_model(model=Homework, obj=obj, keys=self.post_keys, model_inst=homework)
-                #homework.name = obj['name']
-
-                homeworks.append(homework)
-                ordered_homeworks.append(homework)
-            else:
-                # This is a previous Homework probably to associate
-                # Not sure if I should throw an error if 'course_id' or 'class_id' isn't present as it's a mistake
-                homework.id = obj['id']
-                ordered_homeworks.append(homework)
-
-        # This only saves the newly created Homeworks
-        db.session.bulk_save_objects(homeworks, return_defaults=True)
-
-        # Association lists
-        course_homeworks = []
-        class_homeworks = []
-
-        # Check each homework and determine if it needs to be associated
-        for homework in ordered_homeworks:
-            if hasattr(homework, 'course_id'):
-                course_homework = CourseHomework(homework_id=homework.id, course_id=homework.course_id)
-                homework.course_homework = course_homework
-                course_homeworks.append(course_homework)
-            if hasattr(homework, 'class_id'):
-                class_homework = ClassHomework(homework_id=homework.id, class_id=homework.class_id)
-                homework.class_homework = class_homework
-                class_homeworks.append(class_homework)
-
-        if course_homeworks:
-            db.session.bulk_save_objects(course_homeworks, return_defaults=True)
-
-        if class_homeworks:
-            db.session.bulk_save_objects(class_homeworks, return_defaults=True)
-
-            class_ids = [class_homework.class_id for class_homework in class_homeworks]
-
-            # Minimize harm from N^2 loop
-            class_homeworks_map = defaultdict(list)
-            for class_homework in class_homeworks:
-                class_homeworks_map[class_homework.class_id].append(class_homework)
-
-            class_students = db.session.query(ClassStudent).filter(ClassStudent.class_id.in_(class_ids)).all()
-            if class_students:
-                assignments = []
-
-                for class_student in class_students:
-                    for class_homework in class_homeworks_map[class_student.class_id]:
-                        assignments.append(Assignment(class_homework_id=class_homework.id,
-                                                      class_student_id=class_student.id))
-
-                db.session.bulk_save_objects(assignments, return_defaults=False)
-
-        # Prepare response
-        rets = []
-        for homework in ordered_homeworks:
-            lol = homework.json
-            if hasattr(homework, 'course_homework'):
-                # Attach the course_homework related information if necessary
-                lol['course_homework_id'] = homework.course_homework.id
-                lol['course_id'] = homework.course_homework.course_id
-            if hasattr(homework, 'class_homework'):
-                # Attach the class_homework related information if necessary
-                lol['class_homework_id'] = homework.class_homework.id
-                lol['class_id'] = homework.class_homework.class_id
-
-            rets.append(lol)
-
-        db.session.commit()
-
-        return jsonify({"meta": {"len": len(homeworks)}, "data": rets}), 200
+        return hardcore_post(Homework)
 
 
 class AssignmentView(BaseView):

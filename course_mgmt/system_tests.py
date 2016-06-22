@@ -1249,7 +1249,7 @@ class TestInitializations(unittest.TestCase):
 
     def test_add_student(self):
         '''
-        This creates a Course, a Class, a Homework on Class, a Homework on Class, and then a Student on Class
+        This creates a Course, a Class, a Lecture on Class, a Homework on Class, and then a Student on Class
             in that order.
         Creating the student on class should instantiate the Assignments and Attendances.
         '''
