@@ -607,7 +607,7 @@ def hardcore_delete(model):
 def hardcore_post(model):
     '''
     This function is shared between Homework and Lecture.
-    
+
     The following documentation is for Homework, but you can replace it with Lecture and it works identically,
     with the exception of case 3: Create a new Lecture and associate it to a previously created Class.
         In this case, the obj requires a "dt" attribute.
