@@ -607,9 +607,74 @@ def hardcore_delete(model):
 def hardcore_post(model):
     '''
     This function is shared between Homework and Lecture.
+    
+    The following documentation is for Homework, but you can replace it with Lecture and it works identically,
+    with the exception of case 3: Create a new Lecture and associate it to a previously created Class.
+        In this case, the obj requires a "dt" attribute.
 
-    :param model:
-    :return:
+    /api/homework handles multiple operations, which can be mixed and matched in the same request
+        1. Create a new Homework
+            No "id" is present; no "course_id" or "class_id" are present
+        2. Create a new Homework and associate it to a previously created Course
+            No "id" is present; a "course_id" is present
+        3. Create a new Homework and associate it to a previously created Class
+            No "id" is present; a "class_id" is present
+        4. Associate a previously created Homework with a previously created Course
+            An "id" is present; a "course_id" is present
+        5. Associate a previously created Homework with a previously created Class
+            An "id" is present; a "class_id" is present
+
+    For example, a request containing each of those 5 operations, in order, would look like this:
+        {
+            "data": [
+                {
+                   "name": "Python Metaclasses"
+                },
+                {
+                   "name": "Python variables", "course_id": 1
+                },
+                {
+                   "name": "Python loops", "class_id": 10
+                },
+                {
+                   "id": 1, "course_id": 1
+                },
+                {
+                   "id": 1, "class_id": 10
+                },
+            ]
+        }
+
+    This API will perform all the operations and return the following response:
+        {
+            "data": [
+                {
+                   "id": 1, "name": "Python Metaclasses"
+                },
+                {
+                   "id": 2, "name": "Python variables", "course_homework_id": 500, "course_id": 1
+                },
+                {
+                   "name": "Python loops", "class_homework_id": 1001, "class_id": 10
+                },
+                {
+                   "id": 1, "course_homework_id": 501, "course_id": 1, "name": ""
+                },
+                {
+                   "id": 1, "class_homework_id": 1002, ""class_id": 10, name": ""
+                },
+            ]
+        }
+
+    Note how the response is returned in the exact same order as the Request
+
+    Note how "id"s have been added to the newly created Homeworks
+
+    Note how "course_homework_id" and "class_homework_id" are added to those that were associated accordingly
+
+    Note how "name" is empty for cases 4 and 5.
+
+
     '''
 
     if model == Homework:
