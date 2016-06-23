@@ -227,8 +227,6 @@ Response:
 
 ## Delete a Homework
 
-** NOT IMPLEMENTED YET **
-
 Key      | Value
 -------- | --------
 URI      | /api/homework/
@@ -262,9 +260,15 @@ Request:
                 "course_id": 1
             },
             {
+                "course_homework_id": 1
+            }
+            {
                 "id": 3,
-                "course_id": 1
+                "class_id": 1
             },
+            {
+                "class_homework_id": 1
+            }
             ...
         ]
     }
@@ -273,9 +277,7 @@ Response:
 
     {
         "meta": {
-            "num_deleted": 3
+            "num_deleted": 5
         },
         "data": {}
     }
-
-

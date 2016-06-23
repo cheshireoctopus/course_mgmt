@@ -148,6 +148,8 @@ Response:
     }
 
 
+## Delete a class
+
 Key      | Value
 -------- | --------
 URI      | /api/class/
@@ -172,5 +174,3 @@ Response:
         },
         "data": {}
     }
-
-

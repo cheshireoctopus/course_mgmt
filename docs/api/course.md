@@ -79,8 +79,8 @@ Key      | Value
 -------- | --------
 URI      | /api/course/
 Method   | GET
-Query Params | N/A
-Notes    | This doesn't support the query params like in the previous api. Should it?
+Query Params | ?data=homework,lecture,class
+Notes    | This shouldn't support the query params like in the previous api, but its activated for the beta. This needs to be deactivated in the future, however. If there are 100 courses with 100 classes, 100 lectures, and 100 homeworks each, this will be really bad.
 
 Response:
 

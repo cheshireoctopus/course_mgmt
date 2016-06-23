@@ -150,9 +150,10 @@ Key      | Value
 URI      | /api/student/
 Method   | GET
 Query Params | ?class_id=1
-Notes:   | Optionally include `?class_id=1` to filter by class_id. If you add `?class_id=1`, the objects will contain a `class_student_id`. This doesn't accept data query parameters. Should it?
+Query Params | ?data=class,assignment,attendance
+Notes:   | Optionally include `?class_id=1` to filter by class_id. If you add `?class_id=1`, the objects will contain a `class_student_id`. This shouldn't accept `data` query parameters but it is activated for the beta. This needs to be deactivated in the future.
 
-Response:
+Response - No Query Params
 
     {
         "meta": {
@@ -171,6 +172,82 @@ Response:
         ]
     }
 
+Response - ?class_id=1
+
+    {
+        "meta": {
+            "len": 1
+        },
+        "data": [
+            {
+                "id": 1,
+                "class_student_id": 1,
+                "first_name": "Matthew",
+                "last_name": "Moisen",
+                "github_username": "mkmoisen",
+                "email": "student@gmail.com",
+                "photo_url": "http://www.matthewmoisen.com",
+            },
+            ...
+        ]
+    }
+
+Response - ?data=class,assignment,attendance
+
+    {
+        "meta": {
+            "len": 1
+        },
+        "data": [
+            {
+                "id": 1,
+                "first_name": "Matthew",
+                "last_name": "Moisen",
+                "github_username": "mkmoisen",
+                "email": "student@gmail.com",
+                "photo_url": "http://www.matthewmoisen.com",
+                "classes": [
+                    {
+                        "class_student_id": 1,
+                        "course_id": 1,
+                        "end_dt": "2015-06-01 00:00:00",
+                        "id": 1,
+                        "name": "Python 2016",
+                        "start_dt": "2015-01-01 00:00:00"
+                    }
+                ],
+                "assignments": [
+                    {
+                        "class_homework_id": 1,
+                        "class_student_id": 1,
+                        "homework": {
+                            "id": 1,
+                            "name": "Python Metaclasses",
+                            "parent_id": ""
+                        },
+                        "id": 1,
+                        "is_completed": false
+                    },
+                    ...
+                ],
+                "attendances": [
+                    {
+                        "class_lecture_id": 1,
+                        "class_student_id": 1,
+                        "did_attend": false,
+                        "id": 1,
+                        "lecture": {
+                            "description": "Python Metaclasses Lecture",
+                            "id": 1,
+                            "name": "lecture1"
+                        }
+                    },
+                    ...
+                ],
+            },
+            ...
+        ]
+    }
 
 ## Update a student
 
@@ -201,8 +278,6 @@ Response:
     }
 
 ## Delete a student
-
-** NOT IMPLEMENTED YET **
 
 Key      | Value
 -------- | --------

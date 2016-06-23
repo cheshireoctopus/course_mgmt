@@ -244,31 +244,59 @@ Response:
         ]
     }
 
-## Delete a lecture
-
-** NOT IMPLEMENTED YET **
+## Delete a Lecture
 
 Key      | Value
 -------- | --------
 URI      | /api/lecture/
 Method   | DELETE
+Notes    | This API accepts five different types of objects in `data` to cover the following three cases.
+
+    1. Delete a Lecture
+        "id" is present; no "course_id" or "class_id" are present
+    2. Delete the association between a Lecture and a Course
+        A: "course_lecture_id" is present 
+        OR 
+        B: "id AND "course_id" are present
+    3. Delete the association between a Lecture and a Class
+        A: "class_lecture_id" is present 
+        OR 
+        B: "id" AND "class_id" are present
+
+Note that for case 2 and 3, the front end should always have `course_lecture_id` and `class_lecture_id` available.
+This is a more efficient way of deleting the association because it involves one less call to the database.
+I might disable the "id and course_id/class_id" combinations because of this.
 
 Request:
 
     {
         "data": [
             {
-                "id": 1
+                "id": 1,
             },
+            {
+                "id": 2, 
+                "course_id": 1
+            },
+            {
+                "course_lecture_id": 1
+            }
+            {
+                "id": 3,
+                "class_id": 1
+            },
+            {
+                "class_lecture_id": 1
+            }
             ...
         ]
-    }   
+    }
 
 Response:
 
     {
         "meta": {
-            "num_deleted": 1
+            "num_deleted": 5
         },
         "data": {}
     }
