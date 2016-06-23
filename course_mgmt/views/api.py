@@ -1104,7 +1104,7 @@ class ClassView(BaseView):
 class StudentView(BaseView):
     model = Student
     post_keys = ['first_name', 'last_name', 'github_username', 'email', 'photo_url']
-
+    '''
     @try_except
     def index(self):
         class_id, = parse_id_from_query_args(['class_id'])
@@ -1122,10 +1122,91 @@ class StudentView(BaseView):
                 students.append(obj)
 
         return jsonify({"meta": {}, "data": students})
+    '''
 
     @try_except
     @route('/<int:id>/', methods=['GET'])
     def get(self, id=None):
+        # TODO should I add assignment and attendance here?
+        get_class, get_assignment, get_attendance = parse_data_from_query_args(['class', 'assignment', 'attendance'])
+        class_id, = parse_id_from_query_args(['class_id'])
+
+        students = {}
+        student_list = []
+
+        if not class_id:
+            q = db.session.query(Student)
+            if id is not None:
+                q = q.filter_by(id=id)
+
+            student_list = [student.json for student in q]
+
+        else:
+            q = db.session.query(Student, ClassStudent).join(ClassStudent).filter(ClassStudent.class_id==class_id)
+            for student, class_student in q:
+                obj = student.json
+                obj['class_student_id'] = class_student.id
+                student_list.append(obj)
+
+
+        for student in student_list:
+            #student_obj = student.json
+
+            if get_class:
+                student['classes'] = []
+
+            if get_assignment:
+                student['assignments'] = []
+
+            if get_attendance:
+                student['attendances'] = []
+
+            students[student['id']] = student
+
+        student_ids = students.keys()
+
+        if not student_ids:
+            if id is not None:
+                raise UserError("No student with id {}".format(id))
+
+            return jsonify({"meta": {"len": 0}, "data": []})
+
+
+        if get_class:
+            q = db.session.query(Class, ClassStudent).join(ClassStudent).filter(ClassStudent.student_id.in_(student_ids))
+            for clazz, class_student in q:
+                obj = clazz.json
+                obj['class_student_id'] = class_student.id
+                students[class_student.student_id]['classes'].append(obj)
+
+        if get_assignment:
+            # TODO confirm with Chandler if the return values are fine here
+            q = db.session.query(Homework, Assignment, ClassStudent).join(ClassHomework).join(Assignment).join(ClassStudent).filter(ClassStudent.student_id.in_(student_ids))
+            for homework, assignment, class_student in q:
+                obj = assignment.json
+                obj['homework'] = homework.json
+                obj['class_student_id'] = class_student.id
+                students[class_student.student_id]['assignments'].append(obj)
+
+        if get_attendance:
+            q = db.session.query(Lecture, Attendance, ClassStudent).join(ClassLecture).join(Attendance).join(ClassStudent).filter(ClassStudent.student_id.in_(student_ids))
+            for lecture, attendance, class_student in q:
+                obj = attendance.json
+                obj['lecture'] = lecture.json
+                obj['class_student_id'] = class_student.id
+                students[class_student.student_id]['attendances'].append(obj)
+
+        data = students.values()
+        meta = {"len": len(data)}
+        if id is not None:
+            data = data[0]
+            meta = {}
+
+        return jsonify({"meta": meta, "data": data}), 200
+
+    @try_except
+    @route('/<int:id>/', methods=['GET'])
+    def geta(self, id=None):
         # TODO should I add assignment and attendance here?
         get_class, get_assignment, get_attendance = parse_data_from_query_args(['class', 'assignment', 'attendance'])
 
