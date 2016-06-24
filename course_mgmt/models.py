@@ -33,7 +33,7 @@ def to_json(inst, cls):
                 raise ServerError("Failed to convert: {}".format(ex.message))
                 #[c.name] = "Error:  Failed to covert using ", str(convert[c.type])
         elif v is None:
-            d[c.name] = str()
+            d[c.name] = None
         else:
             d[c.name] = v
     return d
