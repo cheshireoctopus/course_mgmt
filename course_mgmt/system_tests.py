@@ -576,7 +576,7 @@ class TestAll(unittest.TestCase):
 
         # Get Lecture
         r = get_lecture(lecture_id)
-        self.assert_data_equals(r, id=lecture_id, name='Lecture 1', description='The first lecture1', parent_id='')
+        self.assert_data_equals(r, id=lecture_id, name='Lecture 1', description='The first lecture1', parent_id=None)
 
         # Update lecture
         #r = update_lecture(id=lecture_id, name='Lecture 2', description='The second lecture', dt='2015-01-01 00:00:00')
@@ -596,7 +596,7 @@ class TestAll(unittest.TestCase):
         # Get Homework
         r = get_homework(homework_independent_id)
         # Shouldn't parent id be null not empty string
-        self.assert_data_equals(r, parent_id='', id=homework_independent_id, name='Homework 1')
+        self.assert_data_equals(r, parent_id=None, id=homework_independent_id, name='Homework 1')
 
         # Update homework
         #r = update_homework(id=homework_independent_id, name='Homework 2')
