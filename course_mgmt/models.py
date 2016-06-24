@@ -206,7 +206,12 @@ class Lecture(BaseModel):
 
 
 
+class Tag(BaseModel):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String, nullable=False, unique=True)
 
+    __table_args__ = (db.CheckConstraint("name <> ''"),
+                      {'sqlite_autoincrement': True})
 
 class Homework(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
@@ -219,6 +224,13 @@ class Homework(BaseModel):
     __table_args__ = (db.CheckConstraint("name <> ''"),
                       {'sqlite_autoincrement': True})
 
+class TagHomework(BaseModel):
+    id = db.Column(db.Integer, primary_key=True)
+    tag_id = db.Column(db.Integer, db.ForeignKey('tag.id'), nullable=False)
+    homework_id = db.Column(db.Integer, db.ForeignKey('homework.id'), nullable=False)
+
+    __table_args__ = (db.UniqueConstraint('tag_id', 'homework_id'),
+                      {'sqlite_autoincrement': True})
 
 class CourseHomework(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
