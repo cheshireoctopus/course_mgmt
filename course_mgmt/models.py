@@ -40,6 +40,51 @@ def to_json(inst, cls):
     return d
 
 
+class Parent(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    children = db.relationship('Child', backref=db.backref('parent'))
+
+class Child(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    foo = db.Column(db.String)
+    parent_id = db.Column(db.Integer, db.ForeignKey('parent.id'), nullable=False)
+
+'''
+from course_mgmt import app, db
+from course_mgmt.models import *
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from sqlalchemy.orm.exc import NoResultFound
+
+parent = Parent()
+db.session.add(parent)
+db.session.commit()
+
+c = Child(foo='hai', parent_id=parent.id)
+db.session.add(c)
+db.session.commit()
+
+parents = []
+children = []
+
+for parent, child in db.session.query(Parent, Child).join(Child):
+    parents.append(parent)
+    children.append(child)
+
+parents[0].children
+children[0].parent
+
+
+c.parent
+
+q = db.session.query(Child).filter_by(foo='hai')
+
+c = q.one()
+
+
+print c.parent.statement
+c.parent.id
+'''
+
 '''
 In shell for testing:
 
@@ -92,31 +137,33 @@ class User(BaseModel):
     last_name = db.Column(db.String, nullable=False)
     email = db.Column(db.String, nullable=False)
     password = db.Column(db.String, nullable=False)
+    type = db.Column(db.String, nullable=False)
 
     __table_args__ = (db.CheckConstraint("first_name <> ''"),
                       db.CheckConstraint("last_name <> ''"),
                       db.CheckConstraint("email <> ''"),
                       db.CheckConstraint("password <> ''"),
+                      db.CheckConstraint("type in ('teacher', 'student')"),
                       {'sqlite_autoincrement': True})
 
-    post_keys = ['first_name', 'last_name', 'email', 'password']
+    post_keys = ['first_name', 'last_name', 'email', 'password', 'type']
 
 
 
 class Teacher(BaseModel):
     # SQlite has weird behavior for a primary key as a FK where it tries to autoincrement for Integer but not Smallint
     if is_sqlite:
-        id = db.Column(SMALLINT, db.ForeignKey('user.id'), primary_key=True)
+        id = db.Column(SMALLINT, db.ForeignKey('user.id', ondelete='CASCADE'), primary_key=True)
     else:
-        id = db.Column(db.Integer, db.ForeignKey('user.id'), primary_key=True)
+        id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), primary_key=True)
 
 
 class Student(BaseModel):
     # SQlite has weird behavior for a primary key as a FK where it tries to autoincrement for Integer but not Smallint
     if is_sqlite:
-        id = db.Column(SMALLINT, db.ForeignKey('user.id'), primary_key=True)
+        id = db.Column(SMALLINT, db.ForeignKey('user.id', ondelete='CASCADE'), primary_key=True)
     else:
-        id = db.Column(db.Integer, db.ForeignKey('user.id'), primary_key=True)
+        id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), primary_key=True)
     github_username = db.Column(db.String, nullable=False)
     photo_url = db.Column(db.String)
 
@@ -132,6 +179,8 @@ class Org(BaseModel):
     __table_args__ = (db.CheckConstraint("name <> ''"),
                       {'sqlite_autoincrement': True},)
 
+    post_keys = ['name']
+
 class Role(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String, nullable=False, unique=True)
@@ -141,17 +190,18 @@ class Role(BaseModel):
 
 class OrgTeacher(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
-    org_id = db.Column(db.Integer, db.ForeignKey('org.id'), nullable=False)
-    teacher_id = db.Column(db.Integer, db.ForeignKey('teacher.id'), nullable=False)
+    org_id = db.Column(db.Integer, db.ForeignKey('org.id', ondelete='CASCADE'), nullable=False)
+    teacher_id = db.Column(db.Integer, db.ForeignKey('teacher.id', ondelete='CASCADE'), nullable=False)
+    courses = db.relationship('Course', backref=db.backref('org_teacher'))
 
     __table_args__ = (db.UniqueConstraint('org_id', 'teacher_id'), {'sqlite_autoincrement': True})
 
-class RoleOrgTeacher(BaseModel):
+class OrgTeacherRole(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
-    role_id = db.Column(db.Integer, db.ForeignKey('role.id'), nullable=False)
-    org_teacher_id = db.Column(db.Integer, db.ForeignKey('org_teacher.id'), nullable=False)
+    org_teacher_id = db.Column(db.Integer, db.ForeignKey('org_teacher.id', ondelete='CASCADE'), nullable=False)
+    role_id = db.Column(db.Integer, db.ForeignKey('role.id', ondelete='CASCADE'), nullable=False)
 
-    __table_args__ = (db.UniqueConstraint('role_id', 'org_teacher_id'), {'sqlite_autoincrement': True})
+    __table_args__ = (db.UniqueConstraint('org_teacher_id', 'role_id'), {'sqlite_autoincrement': True})
 
 class ClassStudent(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
@@ -160,17 +210,17 @@ class ClassStudent(BaseModel):
 
     __table_args__ = (db.UniqueConstraint('class_id', 'student_id'), {'sqlite_autoincrement': True})
 
-class RoleClassStudent(BaseModel):
+class ClassStudentRole(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
-    role_id = db.Column(db.Integer, db.ForeignKey('role.id'), nullable=False)
-    class_student_id = db.Column(db.Integer, db.ForeignKey('class_student.id'), nullable=False)
+    class_student_id = db.Column(db.Integer, db.ForeignKey('class_student.id', ondelete='CASCADE'), nullable=False)
+    role_id = db.Column(db.Integer, db.ForeignKey('role.id', ondelete='CASCADE'), nullable=False)
 
-    __table_args__ = (db.UniqueConstraint('role_id', 'class_student_id'), {'sqlite_autoincrement': True})
+    __table_args__ = (db.UniqueConstraint('class_student_id', 'role_id'), {'sqlite_autoincrement': True})
 
 class Course(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String, unique=True, nullable=False)
-    org_teacher_id = db.Column(db.Integer, db.ForeignKey('org_teacher.id'), nullable=False)
+    org_teacher_id = db.Column(db.Integer, db.ForeignKey('org_teacher.id', ondelete='CASCADE'), nullable=False)
     classes = db.relationship('Class', backref=db.backref('course'))
 
     __table_args__ = (db.CheckConstraint("name <> ''"), {'sqlite_autoincrement': True})
@@ -199,7 +249,7 @@ class Lecture(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String, nullable=False)
     description = db.Column(db.String)
-    parent_id = db.Column(db.Integer, db.ForeignKey('lecture.id'), nullable=True)
+    parent_id = db.Column(db.Integer, db.ForeignKey('lecture.id', ondelete='SET NULL'), nullable=True)
 
     __table_args__ = (db.CheckConstraint("name <> ''"),
                        {'sqlite_autoincrement': True})
@@ -226,8 +276,8 @@ class Homework(BaseModel):
 
 class TagHomework(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
-    tag_id = db.Column(db.Integer, db.ForeignKey('tag.id'), nullable=False)
-    homework_id = db.Column(db.Integer, db.ForeignKey('homework.id'), nullable=False)
+    tag_id = db.Column(db.Integer, db.ForeignKey('tag.id', ondelete='CASCADE'), nullable=False)
+    homework_id = db.Column(db.Integer, db.ForeignKey('homework.id', ondelete='CASCADE'), nullable=False)
 
     __table_args__ = (db.UniqueConstraint('tag_id', 'homework_id'),
                       {'sqlite_autoincrement': True})
@@ -239,6 +289,8 @@ class CourseHomework(BaseModel):
     course_lecture_id = db.Column(db.Integer, db.ForeignKey('course_lecture.id', ondelete='SET NULL'), nullable=True)
 
     __table_args__ = (db.UniqueConstraint('course_id', 'homework_id'), {'sqlite_autoincrement': True})
+
+
 
 class ClassHomework(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
@@ -284,4 +336,4 @@ class Attendance(BaseModel):
                       )
 
 all_models = [ClassStudent, Attendance, Assignment, ClassHomework, ClassLecture,
-              CourseHomework, CourseLecture, Class, Student, Homework, Lecture, OrgTeacher, RoleClassStudent, RoleOrgTeacher, Role, Course, Teacher, User]
+              CourseHomework, CourseLecture, Class, Student, Homework, Lecture, OrgTeacher, ClassStudentRole, OrgTeacherRole, Role, Course, Teacher, User]

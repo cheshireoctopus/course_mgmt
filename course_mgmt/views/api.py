@@ -808,15 +808,47 @@ def delete_db():
     Deletes all the rows in the database.
     Deleting these models should cascade all the other tables
     '''
+    # TODO test taht this works
     num_deleted = 0
-    num_deleted += db.session.query(Course).delete()
+    num_deleted += db.session.query(Org).delete()
+    num_deleted += db.session.query(User).delete()
+    num_deleted += db.session.query(Role).delete()
+    num_deleted += db.session.query(Tag).delete()
     num_deleted += db.session.query(Homework).delete()
     num_deleted += db.session.query(Lecture).delete()
-    num_deleted += db.session.query(Student).delete()
 
     db.session.commit()
 
     return num_deleted
+
+
+
+# There should probably be something like "all possible teacher roles" vs "default teacher roles"
+
+TEACHER_ROLE_NAMES = [
+        'COURSE_WRITE_ALL',
+        'CLASS_WRITE_ALL',
+        'COURSE_HOMEWORK_WRITE_ALL',
+        'COURSE_LECTURE_WRITE_ALL',
+        'CLASS_LECTURE_WRITE_ALL',
+        'CLASS_HOMEWORK_WRITE_ALL',
+        'ASSIGNMENT_WRITE_ALL',
+        'LECTURE_WRITE_ALL'
+    ]
+
+STUDENT_ROLE_NAMES = [
+    'ASSIGNMENT_READ_SELF',
+    'ATTENDANCE_READ_SELF'
+]
+
+def instantiate_roles():
+    role_names = TEACHER_ROLE_NAMES + STUDENT_ROLE_NAMES # + ADMIN_ROLE_NAMES
+
+    roles = [Role(name=name) for name in role_names]
+
+    db.session.bulk_save_objects(roles, return_defaults=True)
+
+    return roles
 
 @app.route('/api/drop/', methods=['POST','GET'])
 @try_except
@@ -826,12 +858,10 @@ def drop_db():
     Drops and recreates the db
     :return:
     '''
-    app.logger.debug("Dropping...")
     db.drop_all()
-    app.logger.debug("Dropping successful")
-    app.logger.debug("Creating...")
     db.create_all()
-    app.logger.debug("Creating successful")
+    instantiate_roles()
+    db.session.commit()
     return jsonify({}), 200
 
 
@@ -1269,6 +1299,7 @@ class StudentView(BaseView):
 
             if not 'id' in obj:
                 # This is a new Student to create
+                obj['type'] = 'teacher'
                 user = json_to_model(User, obj=obj, keys=User.post_keys)
                 users.append(user)
                 student.user = user
@@ -1282,6 +1313,7 @@ class StudentView(BaseView):
 
 
         if users:
+            # Student inherits from Users, so save Users first and get the PK
             db.session.bulk_save_objects(users, return_defaults=True)
             for student in students:
                 if hasattr(student, 'user'):
@@ -1614,6 +1646,192 @@ class AttendanceView(BaseView):
         raise UserError("Attendances cannot be deleted this way. Either delete the student or delete the ClassHomework")
 
 
-views = [CourseView, ClassView, StudentView, LectureView, HomeworkView, AssignmentView, AttendanceView]
+class OrgView(BaseView):
+    model = Org
+
+    @try_except
+    @route('/<int:id>/', methods=['GET'])
+    def get(self, id=None):
+        get_teacher, = parse_data_from_query_args(['teacher'])
+
+        orgs = {}
+
+        q = db.session.query(Org)
+        if id is not None:
+            q = q.filter_by(id=id)
+
+        for org in q:
+            org_obj = org.json
+
+            if get_teacher:
+                org_obj['teachers'] = []
+
+            orgs[org.id] = org_obj
+
+        org_ids = orgs.keys()
+
+        if not org_ids:
+            if id is not None:
+                raise UserError("No org with id {}".format(id))
+
+            return jsonify({"meta": {"len": 0}, "data": []})
+
+        if get_teacher:
+            q = db.session.query(Teacher, OrgTeacher).filter(OrgTeacher.org_ids.in_(org_ids))
+
+            for teacher, org_teacher in q:
+                obj = teacher.json
+                obj['org_teacher_id'] = org_teacher.id
+                orgs[org_teacher.org_id].append(obj)
+
+        data = orgs.values()
+        meta = {"len": len(data)}
+        if id is not None:
+            data = data[0]
+            meta = {}
+
+        return jsonify({"meta": meta, "data": data}), 200
+
+    @try_except
+    def post(self):
+        '''
+        When a new organization is created:
+            a default teacher, org_teacher, org_teacher_roles should be created.
+            a default course, class, student, class_student, and class_student_roles should be created
+
+        Should an "admin" teacher be created too?
+            Or does a user sign up in order to create the org, thus being the "admin teacher" ?
+
+        This method is realllly long to handle all those cases above... perhaps a better db design is warranted
+        :return:
+        '''
+        data = extract_data()
+
+        orgs = bulk_save(Org, data, Org.post_keys)
+
+        # Create default Teachers
+        default_teachers = []
+        default_users = []
+        for org in orgs:
+            teacher = Teacher()
+            # TODO: Make a better solution for the selection of the email and password
+            user = User(first_name='Default', last_name='Default', email='default-course-mgmt-teacher@{}.com'.format(org.name), password='default_password', type='teacher')
+            teacher.user = user
+            teacher.org = org
+
+            org.teacher = teacher
+
+            default_users.append(user)
+            default_teachers.append(teacher)
+
+        db.session.bulk_save_objects(default_users, return_defaults=True)
+
+        for default_teacher in default_teachers:
+            default_teacher.id = default_teacher.user.id
+            default_teacher.first_name = default_teacher.user.first_name
+            default_teacher.last_name = default_teacher.user.last_name
+            default_teacher.email = default_teacher.user.email
+
+        db.session.bulk_save_objects(default_teachers, return_defaults=True)
+
+        # Create OrgTeachers for Default Teachers
+        org_teachers = []
+        for org in orgs:
+            org_teacher = OrgTeacher(org_id=org.id, teacher_id=org.teacher.id)
+            org.teacher.org_teacher = org_teacher
+            org_teachers.append(org_teacher)
+
+        db.session.bulk_save_objects(org_teachers, return_defaults=True)
+
+        # Add default roles to this OrgTeacher
+        q = db.session.query(Role).filter(Role.name.in_(TEACHER_ROLE_NAMES))
+        org_teacher_roles = []
+        for org_teacher in org_teachers:
+            org_teacher.org_teacher_roles = []
+            for role in q:
+                role_org_teacher = OrgTeacherRole(org_teacher_id=org_teacher.id, role_id=role.id)
+                org_teacher.org_teacher_roles.append(role_org_teacher)
+                org_teacher_roles.append(role_org_teacher)
+
+        db.session.bulk_save_objects(org_teacher_roles, return_defaults=True)
+
+        ## Add default Course, Class, ClassStudent, and ClassStudent Roles
+        # TODO maybe this should be reanalyzed for a better solution
+
+        # Add default Course
+        default_courses = []
+        for org_teacher in org_teachers:
+            course = Course(name='default', org_teacher_id=org_teacher.id)
+            org_teacher.course = course
+            default_courses.append(course)
+
+        db.session.bulk_save_objects(default_courses, return_defaults=True)
+
+        # Add default Class
+        class_dt = datetime.now()
+        default_classes = []
+        for course in default_courses:
+            clazz = Class(name='default', start_dt=class_dt, end_dt=class_dt, course_id=course.id)
+            default_classes.append(clazz)
+            clazz.course = course
+
+        db.session.bulk_save_objects(default_classes, return_defaults=True)
+
+        # Add default Student
+        default_students = []
+        default_student_users = []
+        for clazz in default_classes:
+            student = Student(github_username='default-course-mgmt-teacher@{}.com'.format(clazz.course.name))
+            user = User(first_name='Default', last_name='Default', email='default-course-mgmt-teacher@{}.com'.format(clazz.course.name), password='default_password', type='student')
+            student.user = user
+            clazz.student = student
+
+            default_student_users.append(user)
+            default_students.append(student)
+
+        db.session.bulk_save_objects(default_student_users, return_defaults=True)
+
+        for student in default_students:
+            student.id = student.user.id
+
+        db.session.bulk_save_objects(default_students)
+
+        # Add default class student
+        default_class_students = []
+        for clazz in default_classes:
+            class_student = ClassStudent(class_id=clazz.id, student_id=clazz.student.id)
+            default_class_students.append(class_student)
+
+        db.session.bulk_save_objects(default_class_students, return_defaults=True)
+
+        # Add the default rolls to the class student
+        q = db.session.query(Role).filter(Role.name.in_(STUDENT_ROLE_NAMES))
+        class_student_roles = []
+        for class_student in default_class_students:
+            class_student.class_student_roles = []
+            for role in q:
+                class_student_role = ClassStudentRole(class_student_id=class_student.id, role_id=role.id)
+                class_student.class_student_roles.append(class_student_role)
+                class_student_roles.append(class_student_role)
+
+        db.session.bulk_save_objects(class_student_roles, return_defaults=True)
+
+        rets = []
+        for org in orgs:
+            org_obj = org.json
+            default_teacher = org.teacher.json
+            default_teacher['org_teacher'] = org.teacher.org_teacher.json
+            #default_teacher['org_teacher']['org_teacher_roles'] = [role.json for role in org.teacher.org_teacher.org_teacher_roles]
+            #default_teacher['org_teacher']['courses'] = [org.teacher.org_teacher.course]
+            org_obj['default_teacher'] = default_teacher
+            rets.append(org_obj)
+
+        db.session.commit()
+
+        return jsonify({"meta": {"len": len(rets)}, "data": rets})
+
+
+
+views = [OrgView, CourseView, ClassView, StudentView, LectureView, HomeworkView, AssignmentView, AttendanceView]
 for view in views:
     view.register(app, route_prefix='/api/', trailing_slash=True)
