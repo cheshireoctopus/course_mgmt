@@ -2,6 +2,7 @@ __author__ = 'mmoisen'
 from course_mgmt import app
 from course_mgmt import db
 from course_mgmt.views import ServerError, date_format
+from sqlalchemy.dialects.sqlite import SMALLINT
 from datetime import datetime
 #date_format = '%Y-%m-%d %H:%M:%S'
 from sqlalchemy.sql.sqltypes import Date, DateTime
@@ -72,6 +73,7 @@ class Hello(db.Model):
 db.create_all()
 '''
 
+is_sqlite = app.config['DATABASE'] == 'sqlite'
 
 class BaseModel(db.Model):
     '''
@@ -84,13 +86,91 @@ class BaseModel(db.Model):
         return to_json(self, self.__class__)
 
 
-class Teacher(BaseModel):
+class User(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
+    first_name = db.Column(db.String, nullable=False)
+    last_name = db.Column(db.String, nullable=False)
+    email = db.Column(db.String, nullable=False)
+    password = db.Column(db.String, nullable=False)
+
+    __table_args__ = (db.CheckConstraint("first_name <> ''"),
+                      db.CheckConstraint("last_name <> ''"),
+                      db.CheckConstraint("email <> ''"),
+                      db.CheckConstraint("password <> ''"),
+                      {'sqlite_autoincrement': True})
+
+    post_keys = ['first_name', 'last_name', 'email', 'password']
+
+
+
+class Teacher(BaseModel):
+    # SQlite has weird behavior for a primary key as a FK where it tries to autoincrement for Integer but not Smallint
+    if is_sqlite:
+        id = db.Column(SMALLINT, db.ForeignKey('user.id'), primary_key=True)
+    else:
+        id = db.Column(db.Integer, db.ForeignKey('user.id'), primary_key=True)
+
+
+class Student(BaseModel):
+    # SQlite has weird behavior for a primary key as a FK where it tries to autoincrement for Integer but not Smallint
+    if is_sqlite:
+        id = db.Column(SMALLINT, db.ForeignKey('user.id'), primary_key=True)
+    else:
+        id = db.Column(db.Integer, db.ForeignKey('user.id'), primary_key=True)
+    github_username = db.Column(db.String, nullable=False)
+    photo_url = db.Column(db.String)
+
+    __table_args__ = (db.CheckConstraint("github_username <> ''"),
+                      db.CheckConstraint("photo_url <> ''"),)
+
+    post_keys = ['github_username', 'photo_url']
+
+class Org(BaseModel):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String, nullable=False, unique=True)
+
+    __table_args__ = (db.CheckConstraint("name <> ''"),
+                      {'sqlite_autoincrement': True},)
+
+class Role(BaseModel):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String, nullable=False, unique=True)
+
+    __table_args__ = (db.CheckConstraint("name <> ''"),
+                      {'sqlite_autoincrement': True})
+
+class OrgTeacher(BaseModel):
+    id = db.Column(db.Integer, primary_key=True)
+    org_id = db.Column(db.Integer, db.ForeignKey('org.id'), nullable=False)
+    teacher_id = db.Column(db.Integer, db.ForeignKey('teacher.id'), nullable=False)
+
+    __table_args__ = (db.UniqueConstraint('org_id', 'teacher_id'), {'sqlite_autoincrement': True})
+
+class RoleOrgTeacher(BaseModel):
+    id = db.Column(db.Integer, primary_key=True)
+    role_id = db.Column(db.Integer, db.ForeignKey('role.id'), nullable=False)
+    org_teacher_id = db.Column(db.Integer, db.ForeignKey('org_teacher.id'), nullable=False)
+
+    __table_args__ = (db.UniqueConstraint('role_id', 'org_teacher_id'), {'sqlite_autoincrement': True})
+
+class ClassStudent(BaseModel):
+    id = db.Column(db.Integer, primary_key=True)
+    class_id = db.Column(db.Integer, db.ForeignKey('class.id', ondelete='CASCADE'), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey('student.id', ondelete='CASCADE'), nullable=False)
+
+    __table_args__ = (db.UniqueConstraint('class_id', 'student_id'), {'sqlite_autoincrement': True})
+
+class RoleClassStudent(BaseModel):
+    id = db.Column(db.Integer, primary_key=True)
+    role_id = db.Column(db.Integer, db.ForeignKey('role.id'), nullable=False)
+    class_student_id = db.Column(db.Integer, db.ForeignKey('class_student.id'), nullable=False)
+
+    __table_args__ = (db.UniqueConstraint('role_id', 'class_student_id'), {'sqlite_autoincrement': True})
 
 class Course(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String, unique=True, nullable=False)
+    org_teacher_id = db.Column(db.Integer, db.ForeignKey('org_teacher.id'), nullable=False)
     classes = db.relationship('Class', backref=db.backref('course'))
 
     __table_args__ = (db.CheckConstraint("name <> ''"), {'sqlite_autoincrement': True})
@@ -109,20 +189,7 @@ class Class(BaseModel):
 
 
 
-class Student(BaseModel):
-    id = db.Column(db.Integer, primary_key=True)
-    first_name = db.Column(db.String, nullable=False)
-    last_name = db.Column(db.String, nullable=False)
-    github_username = db.Column(db.String, nullable=False)
-    email = db.Column(db.String, nullable=False)
-    photo_url = db.Column(db.String)
 
-    __table_args__ = (db.CheckConstraint("first_name <> ''"),
-                      db.CheckConstraint("last_name <> ''"),
-                      db.CheckConstraint("github_username <> ''"),
-                      db.CheckConstraint("email <> ''"),
-                      db.CheckConstraint("photo_url <> ''"),
-                      {'sqlite_autoincrement': True})
 
 
 class Lecture(BaseModel):
@@ -138,12 +205,6 @@ class Lecture(BaseModel):
                        {'sqlite_autoincrement': True})
 
 
-class ClassStudent(BaseModel):
-    id = db.Column(db.Integer, primary_key=True)
-    class_id = db.Column(db.Integer, db.ForeignKey('class.id', ondelete='CASCADE'), nullable=False)
-    student_id = db.Column(db.Integer, db.ForeignKey('student.id', ondelete='CASCADE'), nullable=False)
-
-    __table_args__ = (db.UniqueConstraint('class_id', 'student_id'), {'sqlite_autoincrement': True})
 
 
 
@@ -211,4 +272,4 @@ class Attendance(BaseModel):
                       )
 
 all_models = [ClassStudent, Attendance, Assignment, ClassHomework, ClassLecture,
-              CourseHomework, CourseLecture, Class, Student, Homework, Lecture, Course]
+              CourseHomework, CourseLecture, Class, Student, Homework, Lecture, OrgTeacher, RoleClassStudent, RoleOrgTeacher, Role, Course, Teacher, User]

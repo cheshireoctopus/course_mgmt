@@ -1249,6 +1249,8 @@ class StudentView(BaseView):
 
     @try_except
     def post(self):
+        data = [{"name": "Matthew"}, {"name": "Chandler"}]
+
         data = extract_data()
 
         # This ensures the order of the response is identical to the request
@@ -1256,6 +1258,7 @@ class StudentView(BaseView):
 
         # This contains the newly created Students (where "id" is not present)
         students = []
+        users = []
 
         # Check each obj in data and determine if it is New and/or needs to be associated to a Class
         for obj in data:
@@ -1266,13 +1269,26 @@ class StudentView(BaseView):
 
             if not 'id' in obj:
                 # This is a new Student to create
-                json_to_model(model=Student, obj=obj, keys=self.post_keys, model_inst=student)
+                user = json_to_model(User, obj=obj, keys=User.post_keys)
+                users.append(user)
+                student.user = user
 
+                json_to_model(model=Student, obj=obj, keys=Student.post_keys, model_inst=student)
                 students.append(student)
             else:
                 student.id = obj['id']
 
             ordered_students.append(student)
+
+
+        if users:
+            db.session.bulk_save_objects(users, return_defaults=True)
+            for student in students:
+                if hasattr(student, 'user'):
+                    student.id = user.id
+                    student.first_name = user.first_name
+                    student.last_name = user.last_name
+                    student.email = user.email
 
         db.session.bulk_save_objects(students, return_defaults=True)
 
