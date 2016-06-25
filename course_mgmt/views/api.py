@@ -274,7 +274,11 @@ def bulk_update(model, data):
     for obj in data:
         kwargs = {}
         for key in obj:
-            if isinstance(getattr(model, key).type, DateTime):
+            try:
+                field = getattr(model, key)
+            except AttributeError as ex:
+                raise UserError("This key does not belong in the request: {}".format(ex.message))
+            if isinstance(field.type, DateTime):
                 try:
                     kwargs[key] = datetime.strptime(obj[key], date_format)
                 except ValueError as ex:
@@ -288,8 +292,6 @@ def bulk_update(model, data):
         db.session.bulk_update_mappings(model, objs)
     except IntegrityError as ex:
         return UserError(ex.message)
-    except AttributeError as ex:
-        raise UserError("Probably sent an illegal key: {}".format(ex.message))
 
 
 
