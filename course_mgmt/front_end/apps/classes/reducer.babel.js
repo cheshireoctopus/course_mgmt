@@ -7,7 +7,7 @@ let initialState = Immutable.Map({
 	courses: Immutable.List(),
 	isLoading: false,
 	isShowingClass: false,
-	studentsByClass: [],
+	studentsByClass: Immutable.List(),
 	isShowingForm: false,
 })
 
@@ -37,9 +37,11 @@ module.exports = (state = initialState, action) => {
 }
 
 function receiveClass (state, payload) {
+	let { classObj } = payload
+
 	return state.merge({
 		isShowingClass: true,
-		classObj: payload.classObj,
+		classObj: classObj,
 	})
 }
 
@@ -60,8 +62,10 @@ function receiveCourses (state, payload) {
 }
 
 function receiveStudents (state, payload) {
+	let { students } = payload
+
 	return state.merge({
-		studentsByClass: payload.students,
+		studentsByClass: students,
 	})
 }
 
@@ -94,7 +98,9 @@ function renderForm (state, payload) {
 }
 
 function toggleLoading (state, payload) {
+	let { value } = payload
+
 	return state.merge({
-		isLoading: payload.value,
+		isLoading: value,
 	})
 }

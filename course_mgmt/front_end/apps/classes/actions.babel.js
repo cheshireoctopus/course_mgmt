@@ -61,11 +61,18 @@ module.exports = {
 
 	showClass (classId) {
 		return (dispatch, getState) => {
+			dispatch(toggleLoading(true))
+
 			let classes = getState().get('classes').toJS()
 			let classObj = _.findWhere(classes, { id: classId })
 
-			dispatch(receiveClass(classObj))
-			dispatch(renderClass())
+			$.get(API.STUDENT + '?class_id=' + classId)
+			.then(res => {
+				dispatch(receiveStudents(res.data))
+				dispatch(receiveClass(classObj))
+				dispatch(renderClass())
+				dispatch(toggleLoading(false))
+			})
 		}
 	},
 
@@ -168,15 +175,6 @@ function fetchCourses () {
 	}
 }
 
-function fetchStudentsByClassId (classId) {
-	return dispatch => {
-		$.get('/api/students/class/' + classId)
-			.then(res => {
-				dispatch(receiveStudents(res))
-			})
-	}
-}
-
 // RECEIVE
 function receiveClass (classObj) {
 	return {
@@ -211,7 +209,7 @@ function receiveStudents (students) {
 	return {
 		type: actions.RECEIVE_STUDENTS,
 		payload: {
-			students,
+			students: Immutable.fromJS(students),
 		}
 	}
 }

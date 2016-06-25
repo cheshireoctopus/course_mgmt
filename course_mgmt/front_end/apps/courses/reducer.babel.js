@@ -34,8 +34,6 @@ function addCourse (state, payload) {
 }
 
 function receiveCourses (state, payload) {
-	console.log(Immutable.fromJS(payload).toJS)
-
 	return state.merge({
 		courses: Immutable.fromJS(payload),
 		isShowingCourse: false,

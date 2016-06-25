@@ -97,7 +97,6 @@ function toggleLoading (value) {
 }
 
 function saveStudent (student) {
-	console.log('saving student')
 	let data = { data: [student] }
 
 	return (dispatch, getState) => {
@@ -108,14 +107,13 @@ function saveStudent (student) {
 			contentType: 'application/JSON',
 		})
 		.then(res => {
-			let newStudent = _.first(res.data)
-			let students = getState().get('students').toJS()
-
-			students.push(newStudent)
-
-			dispatch(receiveStudents(students))
-			dispatch(renderStudents())
-			dispatch(toggleLoading(false))
+			$.when(
+				dispatch(fetchStudents())
+			)
+			.then(() => {
+				dispatch(renderStudents())
+				dispatch(toggleLoading(false))
+			})
 		})
 	}
 }
