@@ -98,8 +98,8 @@ function createClass (classObj) {
 			classes.push(res.data[0])
 
 			dispatch(receiveClasses(classes))
-			dispatch(toggleLoading(false))
 			dispatch(renderClasses())
+			dispatch(toggleLoading(false))
 		})
 	}
 }
@@ -125,8 +125,8 @@ function editClass (editedClass) {
 			})
 
 			dispatch(receiveClasses(classes))
-			dispatch(toggleLoading(false))
 			dispatch(renderClasses())
+			dispatch(toggleLoading(false))
 		})
 	}
 }
@@ -151,11 +151,12 @@ function fetchClass (classId) {
 }
 
 function fetchClasses () {
-	return dispatch =>
+	return dispatch => {
 		$.get(API.CLASS)
 			.then(res => {
 				dispatch(receiveClasses(res.data))
 			})
+	}
 }
 
 function fetchCourses () {
