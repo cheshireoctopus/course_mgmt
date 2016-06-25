@@ -102,7 +102,6 @@ def check_authorization(required_minimum_privilege):
     if required_minimum_privilege not in user_privileges:
         raise AuthorizationError("You need a minium privilege of {}".format(required_minimum_privilege))
 
-    
 
 
 
@@ -1942,9 +1941,10 @@ class TeacherView(BaseView):
 
     @try_except
     @login_required
-    @authorization()
     @route('/<int:id>/', methods=['GET'])
     def get(self, id=None):
+        #check_authorization(Privilege(model='teacher', action='read', level=))
+
         get_org, get_course, get_role = parse_data_from_query_args(['org', 'course'])
         org_id, = parse_id_from_query_args(['org_id'])
 
