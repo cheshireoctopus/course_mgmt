@@ -196,7 +196,7 @@ class Assignment(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
     class_student_id = db.Column(db.Integer, db.ForeignKey('class_student.id', ondelete='CASCADE'), nullable=False)
     class_homework_id = db.Column(db.Integer, db.ForeignKey('class_homework.id', ondelete='CASCADE'), nullable=False)
-    is_completed = db.Column(db.Boolean, nullable=False, default=False)
+    is_completed = db.Column(db.Boolean)
 
     __table_args__ = (db.UniqueConstraint('class_student_id', 'class_homework_id'), {'sqlite_autoincrement': True})
 
@@ -204,7 +204,7 @@ class Attendance(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
     class_lecture_id = db.Column(db.Integer, db.ForeignKey('class_lecture.id', ondelete='CASCADE'), nullable=False)
     class_student_id = db.Column(db.Integer, db.ForeignKey('class_student.id', ondelete='CASCADE'), nullable=False)
-    did_attend = db.Column(db.Boolean, nullable=False, default=False)
+    did_attend = db.Column(db.Boolean)
 
     __table_args__ = (db.UniqueConstraint('class_lecture_id', 'class_student_id'), {'sqlite_autoincrement': True},
                       # TODO ? Index it both ways (e.g., include student_id, lecture_id) as per the access patterns
