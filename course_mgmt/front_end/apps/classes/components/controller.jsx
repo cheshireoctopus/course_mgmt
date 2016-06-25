@@ -7,10 +7,7 @@ module.exports = React.createClass({
 	displayName: 'ClassesController',
 
 	propTypes: {
-		classObj: React.PropTypes.oneOfType([
-			React.PropTypes.bool.isRequired,
-			React.PropTypes.object.isRequired,
-		]),
+		classObj: React.PropTypes.object.isRequired,
 		classes: React.PropTypes.array.isRequired,
 		courses: React.PropTypes.array.isRequired,
 		deleteClass: React.PropTypes.func.isRequired,

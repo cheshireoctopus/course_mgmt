@@ -47,15 +47,27 @@ app.jinja_env.add_extension('pyjade.ext.jinja.PyJadeExtension')
 # Routes
 @app.route('/')
 def index():
-    return render_template('index.jade', data={'app': 'courses'})
+    return render_template('index.jade', data={'app': 'classes'})
 
-@app.route('/class/')
+@app.route('/classes/')
 def classes():
     return render_template('index.jade', data={'app': 'classes'})
 
-@app.route('/student/')
+@app.route('/students/')
 def students():
     return render_template('index.jade', data={'app': 'students'})
+
+@app.route('/homework/')
+def homework():
+    return render_template('index.jade', data={'app': 'homework'})
+
+@app.route('/lectures/')
+def lectures():
+    return render_template('index.jade', data={'app': 'lectures'})
+
+@app.route('/courses/')
+def courses():
+    return render_template('index.jade', data={'app': 'courses'})
 
 from course_mgmt.views import *
 

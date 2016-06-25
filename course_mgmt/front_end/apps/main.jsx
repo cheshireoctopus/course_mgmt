@@ -4,6 +4,7 @@ var Nav = require('nav/components/controller.jsx')
 var Classes = require('classes/index.babel')
 var Courses = require('courses/index.babel')
 var Students = require('students/index.babel')
+var Lectures = require('lectures/index.babel')
 
 module.exports = React.createClass({
 	displayName: 'Main',
@@ -31,12 +32,14 @@ module.exports = React.createClass({
 		switch (this.state.app) {
 			case ('classes'):
 				return <Classes />
-			case ('courses'):
-				return <Courses />
 			case ('students'):
 				return <Students />
-			default:
+			case ('lectures'):
+				return <Lectures />
+			case ('courses'):
 				return <Courses />
+			default:
+				return <Classes />
 		}
 	},
 

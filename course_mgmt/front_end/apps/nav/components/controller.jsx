@@ -3,6 +3,8 @@ var React = require('react')
 var NavLink = require('nav/components/nav_link.jsx')
 var constants = require('nav/constants.js')
 
+const MAIN = 'classes'
+
 module.exports = React.createClass({
 	displayName: 'NavController',
 
@@ -26,7 +28,7 @@ module.exports = React.createClass({
 							<span className="icon-bar"></span>
 							<span className="icon-bar"></span>
 						</button>
-						<a className="navbar-brand" href="#">Course MGMT</a>
+						<a className="navbar-brand" href="javascript:void(0)" onClick={this.renderMain}>Course MGMT</a>
 					</div>
 					<div className="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
 						<ul className="nav navbar-nav">
@@ -36,5 +38,9 @@ module.exports = React.createClass({
 				</div>
 			</nav>
 		)
+	},
+
+	renderMain () {
+		this.props.onNavClick(MAIN)
 	}
 })

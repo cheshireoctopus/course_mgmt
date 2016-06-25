@@ -1,13 +1,9 @@
 module.exports = {
 	LINKS: [
-		{
-			title: 'Dashboard',
-			app: 'dashboard',
-		},
-		{
-			title: 'Courses',
-			app: 'courses',
-		},
+		// {
+		// 	title: 'Dashboard',
+		// 	app: 'dashboard',
+		// },
 		{
 			title: 'Classes',
 			app: 'classes',
@@ -16,13 +12,17 @@ module.exports = {
 			title: 'Students',
 			app: 'students',
 		},
-		{
-			title: 'Homework',
-			app: 'homework',
-		},
+		// {
+		// 	title: 'Homework',
+		// 	app: 'homework',
+		// },
 		{
 			title: 'Lectures',
 			app: 'lectures',
+		},
+		{
+			title: 'Courses',
+			app: 'courses',
 		},
 	]
 }

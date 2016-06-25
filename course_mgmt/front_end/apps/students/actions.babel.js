@@ -57,16 +57,12 @@ module.exports = {
 			dispatch(toggleLoading(true))
 
 			if (student.id) return dispatch(editStudent(student))
-			return dispatch(saveStudent(student))
+			return dispatch(createStudent(student))
 		}
 	},
 
 	onShowForm (student) {
-		return (dispatch, getState) => {
-			if (!student) return dispatch(renderForm())
-
-			// else get student by id and render form
-		}
+		return dispatch => dispatch(renderForm())
 	},
 
 	onShowStudent (studentId) {
@@ -96,7 +92,7 @@ function toggleLoading (value) {
 	}
 }
 
-function saveStudent (student) {
+function createStudent (student) {
 	let data = { data: [student] }
 
 	return (dispatch, getState) => {
@@ -210,9 +206,7 @@ function renderStudents () {
 	}
 }
 
-function renderForm (student) {
-	student = !student || Immutable.fromJS(student)
-
+function renderForm () {
 	return {
 		type: actions.RENDER_FORM,
 	}
