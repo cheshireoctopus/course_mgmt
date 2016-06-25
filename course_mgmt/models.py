@@ -185,12 +185,35 @@ class Org(BaseModel):
 
     post_keys = ['name']
 
+
+# There should probably be something like "all possible teacher roles" vs "default teacher roles"
+
+TEACHER_ROLE_NAMES = [
+        'COURSE_WRITE_ALL',
+        'CLASS_WRITE_ALL',
+        'COURSE_HOMEWORK_WRITE_ALL',
+        'COURSE_LECTURE_WRITE_ALL',
+        'CLASS_LECTURE_WRITE_ALL',
+        'CLASS_HOMEWORK_WRITE_ALL',
+        'ASSIGNMENT_WRITE_ALL',
+        'LECTURE_WRITE_ALL'
+    ]
+
+STUDENT_ROLE_NAMES = [
+    'ASSIGNMENT_READ_SELF',
+    'ATTENDANCE_READ_SELF'
+]
+
+
 class Role(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String, nullable=False, unique=True)
 
     __table_args__ = (db.CheckConstraint("name <> ''"),
                       {'sqlite_autoincrement': True})
+
+for role_name in TEACHER_ROLE_NAMES + STUDENT_ROLE_NAMES:
+    setattr(Role, role_name, role_name)
 
 class OrgTeacher(BaseModel):
     id = db.Column(db.Integer, primary_key=True)

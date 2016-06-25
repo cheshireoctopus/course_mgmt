@@ -62,6 +62,73 @@ def login_required(f):
 
     return _login_required
 
+'''
+def lol(foo):
+    print "lol", foo
+    def _lol(f):
+        def _lolol(*args, **kwargs):
+            print "_lolol"
+            return f(*args, **kwargs)
+
+        return _lolol
+    return _lol
+
+
+@lol("wutup")
+def foo(bar, baz):
+    print "real function", bar, baz
+'''
+
+def check_authorization(*role_names):
+    '''
+    Checks whether the user calling the API has the proper authentication for all of the role_names
+    :param role_names: *args containing all the roles the user must have
+    :return: None
+    :raises AuthorizationError if user in session doesn't have all the reols specified by :role_names
+    '''
+    # Todo should check for this
+    type = session['user_type']
+    id = session['user_id']
+
+    if type == 'teacher':
+        q = db.session.query(Role).join(OrgTeacherRole).join(OrgTeacher).filter(OrgTeacher.teacher_id == id)
+    elif type == 'student':
+        q = db.session.query(Role).join(ClassStudentRole).join(ClassStudent).filter(ClassStudent.student_id == id)
+    else:
+        raise ServerError("illegal type {}, should be teacher or student".format(type))
+
+    roles = q.filter(or_(Role.name == role_name for role_name in role_names))
+
+    if len(roles) > len(role_names):
+        raise AuthorizationError("You need all of these roles: {}".format([role.name for role in roles]))
+
+
+def authorization(*role_names):
+    '''
+    This is a decorator that can be applied to any route in order to enforce authorization to the proper roles.
+    Usage:
+
+        @app.route('/api/do-something/')
+        @try_except
+        @login_required
+        @authorization('READ_DO_SOMETHING', 'WRITE_DO_SOMETHING', *other_roles)
+        def do_something()
+            pass
+
+        If multiple roles are passed in, the user must have ALL roles to be authorized
+    :param role_names: *args containing all the roles the user must have
+    :return: None
+    :raises AuthorizationError if user in session doesn't have all the reols specified by :role_names
+    '''
+    check_authorization(role_names)
+
+    def _authorization(f):
+        def __authorization(*args, **kwargs):
+            return f(*args, **kwargs)
+
+        return __authorization
+    return _authorization
+
 
 
 def extract_form(form, keys=None):
@@ -872,23 +939,6 @@ def delete_db():
 
 
 
-# There should probably be something like "all possible teacher roles" vs "default teacher roles"
-
-TEACHER_ROLE_NAMES = [
-        'COURSE_WRITE_ALL',
-        'CLASS_WRITE_ALL',
-        'COURSE_HOMEWORK_WRITE_ALL',
-        'COURSE_LECTURE_WRITE_ALL',
-        'CLASS_LECTURE_WRITE_ALL',
-        'CLASS_HOMEWORK_WRITE_ALL',
-        'ASSIGNMENT_WRITE_ALL',
-        'LECTURE_WRITE_ALL'
-    ]
-
-STUDENT_ROLE_NAMES = [
-    'ASSIGNMENT_READ_SELF',
-    'ATTENDANCE_READ_SELF'
-]
 
 def instantiate_roles():
     role_names = TEACHER_ROLE_NAMES + STUDENT_ROLE_NAMES # + ADMIN_ROLE_NAMES
@@ -1235,25 +1285,6 @@ class ClassView(BaseView):
 class StudentView(BaseView):
     model = Student
     post_keys = ['first_name', 'last_name', 'github_username', 'email', 'photo_url']
-    '''
-    @try_except
-    def index(self):
-        class_id, = parse_id_from_query_args(['class_id'])
-
-        if not class_id:
-            q = db.session.query(Student)
-            students = [student.json for student in q]
-
-        else:
-            students = []
-            q = db.session.query(Student, ClassStudent).join(ClassStudent).filter(ClassStudent.class_id==class_id)
-            for student, class_student in q:
-                obj = student.json
-                obj['class_student_id'] = class_student.id
-                students.append(obj)
-
-        return jsonify({"meta": {}, "data": students})
-    '''
 
     @try_except
     @route('/<int:id>/', methods=['GET'])
@@ -1909,10 +1940,96 @@ class TeacherView(BaseView):
 
     @try_except
     @login_required
+    @authorization()
     @route('/<int:id>/', methods=['GET'])
     def get(self, id=None):
-        get_org, get_course = parse_data_from_query_args(['org', 'course'])
-        org_id, = parse_id_from_query_args()
+        get_org, get_course, get_role = parse_data_from_query_args(['org', 'course'])
+        org_id, = parse_id_from_query_args(['org_id'])
+
+        teachers = {}  # { teacher_id: teacher json }
+        teacher_list = []
+
+        if not org_id:
+            q = db.session.query(User, Teacher).join(Teacher)
+            if id is not None:
+                q = q.filter(Teacher.id == id)
+
+            for user, teacher in q:
+                obj = user.json()
+                del obj['password']
+
+                teacher_list.append(obj)
+
+        else:
+            q = db.session.query(User, Teacher, OrgTeacher).join(Teacher).join(OrgTeacher) \
+                .filter(OrgTeacher.org_id == org_id)
+
+            if id is not None:
+                q = q.filter_by(id=id)
+
+            for user, teacher, org_teacher in q:
+                obj = user.json
+                del obj['password']
+                obj['org_teacher_id'] = org_teacher
+
+                teacher_list.append(teacher)
+
+        for teacher in teacher_list:
+            if get_org:
+                teacher['orgs'] = []
+
+            if get_course:
+                teacher['courses'] = []
+
+            if get_role:
+                teacher['roles'] = []
+
+            teacher[teacher['id']] = teacher
+
+        teacher_ids = teachers.keys()
+
+        if not teacher_ids:
+            if id is not None:
+                raise UserError("No Teacher with id {}".format(id))
+
+            return jsonify({"meta": {"len": 0}, "data": []})
+
+        if get_org:
+            q = db.session.query(Org, OrgTeacher).join(OrgTeacher).filter(OrgTeacher.teacher_id.in_(teacher_ids))
+            for org, org_teacher in q:
+                obj = org.json
+                obj['org_teacher_id'] = org_teacher.id
+
+                teachers[org_teacher.id]['orgs'].append(obj)
+
+        if get_course:
+            q = db.session.query(Course, OrgTeacher).join(OrgTeacher).filter(OrgTeacher.teacher_id.in_(teacher_ids))
+            for course, org_teacher in q:
+                obj = course.json
+                obj['org_teacher_id'] = org_teacher.id
+
+                teachers[org_teacher.id]['courses'].append(obj)
+
+        if get_role:
+            q = db.session.query(Role, OrgTeacherRole).join(OrgTeacherRole).join(OrgTeacher) \
+                .filter(OrgTeacher.teacher_id.in_(teacher_ids))
+
+            for role, org_teacher_role in q:
+                obj = role.json
+                obj['org_teacher_role_id'] = org_teacher_role.id
+                obj['org_teacher_id'] = org_teacher_role.org_teacher_id
+
+                teachers[org_teacher.id]['roels'].append(obj)
+
+        data = teachers.values()
+        meta = {"len": data}
+        if id is not None:
+            data = data[0]
+            meta = {}
+
+        return jsonify({"meta": meta, "data": data}), 200
+
+
 
     @try_except
     def post(self):
