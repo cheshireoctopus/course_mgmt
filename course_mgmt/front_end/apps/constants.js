@@ -2,6 +2,6 @@ module.exports = {
 	API: {
 		COURSE: '/api/course/',
 		CLASS: '/api/class/',
-		STUDENT: '/api/students/',
+		STUDENT: '/api/student/',
 	}
 }

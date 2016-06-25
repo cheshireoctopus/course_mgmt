@@ -30,7 +30,6 @@ module.exports = React.createClass({
 					<hr />
 				</div>
 				<div className="col-md-12">
-
 					{classes && classes.length ?
 						<table className="table table-bordered table-condensed table-striped">
 							<thead>

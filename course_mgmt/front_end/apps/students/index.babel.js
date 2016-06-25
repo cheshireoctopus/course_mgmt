@@ -8,7 +8,7 @@ var Students = require('students/components/controller.jsx')
 module.exports = () => {
 	let store = createStore(Reducer)
 
-	store.dispatch(actions.showStudents())
+	store.dispatch(actions.setup())
 
 	return React.createElement(Controller, {
 		actions,

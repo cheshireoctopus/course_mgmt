@@ -53,5 +53,9 @@ def index():
 def classes():
     return render_template('index.jade', data={'app': 'classes'})
 
+@app.route('/student/')
+def students():
+    return render_template('index.jade', data={'app': 'students'})
+
 from course_mgmt.views import *
 

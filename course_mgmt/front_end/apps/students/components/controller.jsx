@@ -1,17 +1,24 @@
 var React = require('react')
 var Student = require('students/components/student.jsx')
 var Students = require('students/components/students.jsx')
+var Form = require('students/components/student_form.jsx')
 
 module.exports = React.createClass({
 	displayName: 'StudentsController',
 
 	propTypes: {
+		classes: React.PropTypes.array.isRequired,
 		student: React.PropTypes.object.isRequired,
 		students: React.PropTypes.array.isRequired,
 		isLoading: React.PropTypes.bool.isRequired,
 		isShowingStudent: React.PropTypes.bool.isRequired,
-		showStudent: React.PropTypes.func.isRequired,
-		showStudents: React.PropTypes.func.isRequired,
+		isShowingForm: React.PropTypes.bool.isRequired,
+		onSaveForm: React.PropTypes.func.isRequired,
+		onShowForm: React.PropTypes.func.isRequired,
+		onShowStudent: React.PropTypes.func.isRequired,
+		onShowStudents: React.PropTypes.func.isRequired,
+		onEditStudent: React.PropTypes.func.isRequired,
+		onDeleteStudent: React.PropTypes.func.isRequired,
 	},
 
 	render () {
@@ -23,13 +30,35 @@ module.exports = React.createClass({
 						<hr />
 					</div>
 				</div>
-				{this.isLoading ? <h3>Loading...</h3> : this.renderView()}
+				{this.props.isShowingForm ? this.renderForm() : this.renderStudents()}
 			</div>
 		)
 	},
 
-	renderView () {
-		if (this.props.isShowingStudent) return <Student {...this.props.student} showStudents={this.props.showStudents} />
-		return <Students students={this.props.students} showStudent={this.props.showStudent} />
+	renderStudents () {
+		if (this.props.isLoading) return <h3>Loading...</h3>
+		if (this.props.isShowingStudent) {
+			return <Student
+						{...this.props.student}
+						onShowStudents={this.props.onShowStudents}
+						onEdit={this.props.onEditStudent}
+						onDelete={this.props.onDeleteStudent}
+					/>
+		}
+
+		return <Students
+					students={this.props.students}
+					onShowStudent={this.props.onShowStudent}
+					onShowForm={this.props.onShowForm}
+				/>
+	},
+
+	renderForm () {
+		return <Form
+					student={this.props.student}
+					classes={this.props.classes}
+					onSave={this.props.onSaveForm}
+					onClose={this.props.onShowStudents}
+				/>
 	}
 })

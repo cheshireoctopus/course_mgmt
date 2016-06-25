@@ -11,7 +11,7 @@ module.exports = React.createClass({
 	},
 
 	render () {
-		return <li onClick={this.handleClick} className={this.props.isActive ? 'active' : false}><a href="#">{this.props.title}</a></li>
+		return <li onClick={this.handleClick} className={this.props.isActive ? 'active' : false}><a href="javascript:void(0)">{this.props.title}</a></li>
 	},
 
 	handleClick () {
