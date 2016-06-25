@@ -9,6 +9,98 @@ from sqlalchemy.sql.sqltypes import Date, DateTime
 from sqlalchemy.orm import validates
 from course_mgmt.views import UserError
 
+
+'''
+class PermissionLevel(object):
+    ALL = 100
+    ORG = 75
+    TEACHER = 50
+    CLASS = 25
+    def __init__(self, level):
+        if not level in ('all', 'org', 'teacher', 'class'):
+            raise ValueError("Level should be either all, org, teacher, or class")
+
+        self.level = level
+
+    def __eq__(self, other):
+        return self.level == other.level
+
+    def __hash__(self):
+        return hash(self.level)
+
+    def __gt__(self, other):
+        return getattr(self, self.level.upper()) > getattr(other, other.level.upper())
+
+    def __repr__(self):
+        return "PermissionLevel('{}')".format(self.level)
+
+all_level = PermissionLevel('all')
+all_level2 = PermissionLevel('all')
+org_level = PermissionLevel('org')
+
+all_level == all_level2
+all_level > all_level2
+all_level < all_level2
+
+all_level > org_level
+org_level < all_level
+
+
+class Permission(object):
+    def __init__(self, model, action, level, name=None):
+        self.model = model
+        self.action = action
+        self.level = PermissionLevel(level)
+        self.name = name
+
+    def __eq__(self, other):
+        return self.check(other)
+
+    def __hash__(self):
+        #return hash((self.model, self.action, self.level))
+        return hash(self.model)
+
+    def check(self, other):
+        print "I am ", self.name, "other is", other.name
+        if not self.model == other.model:
+            return False
+
+        if not self.action == other.action:
+            return False
+
+        print "self.level > other.level ?", self.level > other.level
+        if self.level > other.level:
+            return False
+
+        return True
+
+    def __repr__(self):
+        return "Permission('{}', '{}', '{}')".format(self.model, self.action, self.level)
+
+
+required_permission = Permission('homework', 'write', 'class', "required")
+
+user_permissions = set([
+    Permission('homework', 'write', 'teacher', "user"),
+    Permission('homework', 'read', 'teacher', "user"),
+    Permission('lecture', 'write', 'teacher', "user"),
+    Permission('lecture', 'read', 'teacher', "user")
+])
+
+user_permissions = {Permission('homework', 'write', 'teacher', "user")}
+
+print required_permission in user_permissions
+
+for user_perm in user_permissions:
+    if required_permission.check(user_perm):
+        print user_perm
+
+
+
+
+print required_permission
+'''
+
 def to_json(inst, cls):
     """
     Convert a SQLAlchemy query result into a serializable dict.
@@ -188,32 +280,92 @@ class Org(BaseModel):
 
 # There should probably be something like "all possible teacher roles" vs "default teacher roles"
 
-TEACHER_ROLE_NAMES = [
-        'COURSE_WRITE_ALL',
-        'CLASS_WRITE_ALL',
-        'COURSE_HOMEWORK_WRITE_ALL',
-        'COURSE_LECTURE_WRITE_ALL',
-        'CLASS_LECTURE_WRITE_ALL',
-        'CLASS_HOMEWORK_WRITE_ALL',
-        'ASSIGNMENT_WRITE_ALL',
-        'LECTURE_WRITE_ALL'
-    ]
 
-STUDENT_ROLE_NAMES = [
-    'ASSIGNMENT_READ_SELF',
-    'ATTENDANCE_READ_SELF'
+class PrivilegeLevel(object):
+    # TODO change this to a dict
+    # TODO shouldn't write and read perform similiar
+    ALL = 100
+    ORG = 75
+    TEACHER = 50
+    CLASS = 25
+    def __init__(self, level):
+        if not level in ('all', 'org', 'teacher', 'class'):
+            raise ValueError("Level should be either all, org, teacher, or class")
+
+        self.level = level
+
+    def __eq__(self, other):
+        return self.level == other.level
+
+    def __hash__(self):
+        return hash(self.level)
+
+    def __gt__(self, other):
+        return getattr(self, self.level.upper()) > getattr(other, other.level.upper())
+
+    def __repr__(self):
+        return "PrivilegeLevel('{}')".format(self.level)
+
+class Privilege(BaseModel):
+    id = db.Column(db.Integer, primary_key=True)
+    model = db.Column(db.String, nullable=False)
+    action = db.Column(db.String, nullable=False)
+    level = db.Column(db.String, nullable=False)
+
+    __table_args__ = (db.CheckConstraint("model <> ''"),
+                      db.CheckConstraint("action in ('read', 'write')"),
+                      db.CheckConstraint("level in ('root', 'org', 'teacher', 'class', 'student')"),
+                      db.UniqueConstraint("model", "action", 'level'),
+                      {'sqlite_autoincrement': True})
+
+    def __eq__(self, other):
+        if not isinstance(self, Privilege) or not isinstance(other, Privilege):
+            return False
+        return self.check(other)
+
+    def __hash__(self):
+        # Todo could be more optimized
+        return hash(self.model)
+
+    def check(self, other):
+        if not self.model == other.model:
+            return False
+
+        if not self.action == other.action:
+            return False
+
+        self_level = PrivilegeLevel(self.level)
+        other_level = PrivilegeLevel(other.level)
+
+        print "self_level > other_level ?", self_level > other_level
+        if self_level > other_level:
+            return False
+
+        return True
+
+TEACHER_DEFAULT_PRIVILEGES = [
+    Privilege(model='course', action='write', level='teacher'),
+    Privilege(model='homework', action='write', level='teacher'),
+    Privilege(model='lecture', action='write', level='teacher'),
+    Privilege(model='class', action='write', level='teacher'),
+    Privilege(model='assignment', action='write', level='teacher'),
+    Privilege(model='attendance', action='write', level='teacher'),
+]
+
+required_privilege = Privilege(model='course', action='write', level='teacher')
+user_privilege = Privilege(model='course', action='write', level='org')
+user_privilege2 = Privilege(model='course', action='write', level='class')
+
+user_privilege in TEACHER_DEFAULT_PRIVILEGES
+
+STUDENT_DEFAULT_PRIVIELGES = [
+    Privilege(model='assignment', action='read', level='student'),
+    Privilege(model='attendance', action='read', level='student'),
+    Privilege(model='homework', action='read', level='class'),
+    Privilege(model='lecture', action='read', level='class')
 ]
 
 
-class Role(BaseModel):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String, nullable=False, unique=True)
-
-    __table_args__ = (db.CheckConstraint("name <> ''"),
-                      {'sqlite_autoincrement': True})
-
-for role_name in TEACHER_ROLE_NAMES + STUDENT_ROLE_NAMES:
-    setattr(Role, role_name, role_name)
 
 class OrgTeacher(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
@@ -223,12 +375,12 @@ class OrgTeacher(BaseModel):
 
     __table_args__ = (db.UniqueConstraint('org_id', 'teacher_id'), {'sqlite_autoincrement': True})
 
-class OrgTeacherRole(BaseModel):
+class OrgTeacherPrivilege(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
     org_teacher_id = db.Column(db.Integer, db.ForeignKey('org_teacher.id', ondelete='CASCADE'), nullable=False)
-    role_id = db.Column(db.Integer, db.ForeignKey('role.id', ondelete='CASCADE'), nullable=False)
+    privilege_id = db.Column(db.Integer, db.ForeignKey('privilege.id', ondelete='CASCADE'), nullable=False)
 
-    __table_args__ = (db.UniqueConstraint('org_teacher_id', 'role_id'), {'sqlite_autoincrement': True})
+    __table_args__ = (db.UniqueConstraint('org_teacher_id', 'privilege_id'), {'sqlite_autoincrement': True})
 
 class ClassStudent(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
@@ -237,12 +389,12 @@ class ClassStudent(BaseModel):
 
     __table_args__ = (db.UniqueConstraint('class_id', 'student_id'), {'sqlite_autoincrement': True})
 
-class ClassStudentRole(BaseModel):
+class ClassStudentPrivilege(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
     class_student_id = db.Column(db.Integer, db.ForeignKey('class_student.id', ondelete='CASCADE'), nullable=False)
-    role_id = db.Column(db.Integer, db.ForeignKey('role.id', ondelete='CASCADE'), nullable=False)
+    privilege_id = db.Column(db.Integer, db.ForeignKey('privilege.id', ondelete='CASCADE'), nullable=False)
 
-    __table_args__ = (db.UniqueConstraint('class_student_id', 'role_id'), {'sqlite_autoincrement': True})
+    __table_args__ = (db.UniqueConstraint('class_student_id', 'privilege_id'), {'sqlite_autoincrement': True})
 
 class Course(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
@@ -363,4 +515,4 @@ class Attendance(BaseModel):
                       )
 
 all_models = [ClassStudent, Attendance, Assignment, ClassHomework, ClassLecture,
-              CourseHomework, CourseLecture, Class, Student, Homework, Lecture, OrgTeacher, ClassStudentRole, OrgTeacherRole, Role, Course, Teacher, User]
+              CourseHomework, CourseLecture, Class, Student, Homework, Lecture, OrgTeacher, ClassStudentPrivilege, OrgTeacherPrivilege, Privilege, Course, Teacher, User]

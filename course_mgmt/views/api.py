@@ -79,10 +79,10 @@ def foo(bar, baz):
     print "real function", bar, baz
 '''
 
-def check_authorization(*role_names):
+def check_authorization(required_minimum_privilege):
     '''
     Checks whether the user calling the API has the proper authentication for all of the role_names
-    :param role_names: *args containing all the roles the user must have
+    :param required_minimum_privilege: The minimum privilege the user must have
     :return: None
     :raises AuthorizationError if user in session doesn't have all the reols specified by :role_names
     '''
@@ -91,16 +91,20 @@ def check_authorization(*role_names):
     id = session['user_id']
 
     if type == 'teacher':
-        q = db.session.query(Role).join(OrgTeacherRole).join(OrgTeacher).filter(OrgTeacher.teacher_id == id)
+        q = db.session.query(Privilege).join(OrgTeacherPrivilege).join(OrgTeacher).filter(OrgTeacher.teacher_id == id)
     elif type == 'student':
-        q = db.session.query(Role).join(ClassStudentRole).join(ClassStudent).filter(ClassStudent.student_id == id)
+        q = db.session.query(Privilege).join(ClassStudentPrivilege).join(ClassStudent).filter(ClassStudent.student_id == id)
     else:
         raise ServerError("illegal type {}, should be teacher or student".format(type))
 
-    roles = q.filter(or_(Role.name == role_name for role_name in role_names))
+    user_privileges = q.filter(Privilege.model == required_minimum_privilege.model).all()
 
-    if len(roles) > len(role_names):
-        raise AuthorizationError("You need all of these roles: {}".format([role.name for role in roles]))
+    if required_minimum_privilege not in user_privileges:
+        raise AuthorizationError("You need a minium privilege of {}".format(required_minimum_privilege))
+
+    
+
+
 
 
 def authorization(*role_names):
@@ -120,10 +124,11 @@ def authorization(*role_names):
     :return: None
     :raises AuthorizationError if user in session doesn't have all the reols specified by :role_names
     '''
-    check_authorization(role_names)
+
 
     def _authorization(f):
         def __authorization(*args, **kwargs):
+            check_authorization(role_names)
             return f(*args, **kwargs)
 
         return __authorization
@@ -940,14 +945,11 @@ def delete_db():
 
 
 
-def instantiate_roles():
-    role_names = TEACHER_ROLE_NAMES + STUDENT_ROLE_NAMES # + ADMIN_ROLE_NAMES
+def instantiate_privileges():
+    privileges = TEACHER_DEFAULT_PRIVILEGES + STUDENT_DEFAULT_PRIVIELGES
+    db.session.bulk_save_objects(privileges, return_defaults=True)
 
-    roles = [Role(name=name) for name in role_names]
-
-    db.session.bulk_save_objects(roles, return_defaults=True)
-
-    return roles
+    return privileges
 
 
 @app.route('/api/login/', methods=['POST'])
@@ -1011,7 +1013,7 @@ def drop_db():
     '''
     db.drop_all()
     db.create_all()
-    instantiate_roles()
+    instantiate_privileges()
     db.session.commit()
     return jsonify({}), 200
 
