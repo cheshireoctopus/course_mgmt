@@ -26,6 +26,11 @@ To create the database tables, at project root run `python manage.py db migrate`
 
 To boot the webserver, at project root run `python run.py`. Project is hosted on `localhost:5000`
 
+To seed it with some data, run the following from project root:
+
+    cd course_mgmt
+    nosetests system_tests:TestAll.test_all_create
+
 To boot webpack for bundling/watching of frontend assets, run `npm run bundle` at `course_mgmt/front_end/` root. This will bundle JavaScript and CSS assets into `course_mgmt/front_end/public/js/build/bundle.js`.
 
 Documentation is located on [Gitbook](https://cheshireoctopus.gitbooks.io/course_mgmt/content/) or on [GitHub](docs/SUMMARY.md).
