@@ -1,5 +1,9 @@
 __author__ = 'mmoisen'
-from flask import Flask
+from flask import Flask, session
+#app = Flask(__name__)
+#app.secret_key = 'abc'
+
+
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.engine import Engine
 from sqlalchemy import event
@@ -28,6 +32,7 @@ app.config.from_object(Config)
 # Secret key is required for CSRF stuff change this to something more secure
 app.secret_key = app.config['SECRET_KEY']
 app.config['DATABASE'] = parse_database_from_uri(app.config['SQLALCHEMY_DATABASE_URI'])
+app.config['SQLALCHEMY_ECHO'] = True
 app.logger.debug("I am {}".format(app.config['DATABASE']))
 
 if app.config['DATABASE'] == 'sqlite':

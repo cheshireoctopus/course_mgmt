@@ -1,10 +1,10 @@
 __author__ = 'mmoisen'
 from course_mgmt.models import *
 from course_mgmt import app
-from . import UserError, ServerError, date_format
+from . import UserError, ServerError, date_format, AuthenticationError, AuthorizationError
 from flask.ext.classy import FlaskView, route
 from flask import jsonify, request, url_for, redirect, g, session
-
+from functools import wraps
 from datetime import datetime
 
 from sqlalchemy.sql.sqltypes import Date, DateTime
@@ -15,6 +15,25 @@ from functools import wraps
 from sqlalchemy.orm.session import make_transient
 from collections import defaultdict
 from sqlalchemy import or_, and_
+from passlib.hash import sha256_crypt
+
+def encrypt_password(password):
+    return sha256_crypt.encrypt(password)
+
+def verify_password(provided_password, stored_password):
+    return sha256_crypt.verify(provided_password, stored_password)
+
+def create_user(**kwargs):
+    '''
+    Always use this to create a user, instead of doing so directly.
+    This will guarentee the password is hashed correctly
+    '''
+    if sha256_crypt.identify(kwargs['password']):
+        raise ServerError("Don't encrypt password before calling create_user")
+
+    kwargs['password'] = sha256_crypt.encrypt(kwargs['password'])
+    user = User(**kwargs)
+    return user
 
 '''
 In shell for testing:
@@ -25,6 +44,26 @@ from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 
 '''
+
+
+def login_required(f):
+    @wraps(f)
+    def _login_required(*args, **kwargs):
+        if not session:
+            app.logger.debug("not session")
+        if 'logged_in' not in session:
+            app.logger.debug("logged_in not in session")
+        if not session or not 'logged_in' in session or not session['logged_in']:
+            # If this request is for an API, return a unathorized message
+            # if this request is for a UI, return the login page
+            # TODO implement that logic
+            return jsonify({"error": "not logged in"}), 401
+        return f(*args, **kwargs)
+
+    return _login_required
+
+
+
 def extract_form(form, keys=None):
     '''
     Helper method to extract specified keys out of a POSTed form
@@ -160,6 +199,16 @@ def try_except(func):
             app.logger.exception(ex.message)
             db.session.rollback()
             return jsonify({'error': ex.message}), 500
+
+        except AuthenticationError as ex:
+            app.logger.exception(ex.message)
+            db.session.rollback()
+            return jsonify({'error': ex.message}), 401
+
+        except AuthorizationError as ex:
+            app.logger.exception(ex.message)
+            db.session.rollback()
+            return jsonify({'error': ex.message}), 403
 
         except SQLAlchemyError as ex:
             ''' This is a server error '''
@@ -850,7 +899,59 @@ def instantiate_roles():
 
     return roles
 
-@app.route('/api/drop/', methods=['POST','GET'])
+
+@app.route('/api/login/', methods=['POST'])
+@try_except
+def login():
+    data = extract_data()
+
+    if not isinstance(data, dict):
+        raise UserError("'data' attribute should be a JSON object, not a {}".format(type(data)))
+
+    if 'email' not in data or 'password' not in data:
+        raise UserError("email and data attributes are required")
+
+    email = data['email']
+    password = data['password']
+
+    try:
+        # TODO: should I left join to student in case we need the github user email and etc??
+        user, student = db.session.query(User, Student).outerjoin(Student).filter(User.email==email).one()
+    except NoResultFound:
+        # TODO we shouldn't say whether the email wasn't found or the password didn't match
+        raise AuthenticationError("No user with email {}".format(email))
+
+    if not verify_password(provided_password=password, stored_password=user.password):
+        raise AuthenticationError("Password doesn't match")
+
+    # A default user's sole purpose is for cloning Courses/class/homework/lectures/rolls, not for logging in
+    if user.is_default:
+        raise AuthorizationError("No logging into default users permitted")
+
+    session.clear()
+    session['logged_in'] = True
+    session['user_email'] = email
+    session['user_first_name'] = user.first_name
+    session['user_last_name'] = user.last_name
+    session['user_type'] = user.type
+
+    if user.type == 'student':
+        session['user_github_username'] = student.github_username
+
+    meta = {item[0]: item[1] for item in session.items()}
+
+    return jsonify({"meta": meta, "data": {}})
+
+@app.route('/api/logout/', methods=['POST'])
+@try_except
+@login_required
+def logout():
+    session.clear()
+    return jsonify({}), 200
+
+
+
+@app.route('/api/drop/', methods=['DELETE'])
 @try_except
 def drop_db():
     '''
@@ -1235,52 +1336,7 @@ class StudentView(BaseView):
         return jsonify({"meta": meta, "data": data}), 200
 
     @try_except
-    @route('/<int:id>/', methods=['GET'])
-    def geta(self, id=None):
-        # TODO should I add assignment and attendance here?
-        get_class, get_assignment, get_attendance = parse_data_from_query_args(['class', 'assignment', 'attendance'])
-
-        try:
-            student = db.session.query(Student).filter_by(id=id).one()
-        except NoResultFound:
-            raise UserError("No students with id={}".format(id))
-
-        ret = student.json
-
-        if get_class:
-            ret['classes'] = []
-            q = db.session.query(Class, ClassStudent).join(ClassStudent).filter(ClassStudent.student_id == student.id)
-            for clazz, class_student in q:
-                obj = clazz.json
-                obj['class_student_id'] = class_student.id
-                ret['classes'].append(obj)
-
-        if get_assignment:
-            # TODO confirm with Chandler if the return values are fine here
-            ret['assignments'] = []
-            q = db.session.query(Homework, Assignment, ClassStudent).join(ClassHomework).join(Assignment).join(ClassStudent).filter(ClassStudent.student_id == id)
-            for homework, assignment, class_student in q:
-                obj = assignment.json
-                obj['homework'] = homework.json
-                obj['class_student_id'] = class_student.id
-                ret['assignments'].append(obj)
-
-        if get_attendance:
-            # TODO confirm with Chandler if the return values are fine here
-            ret['attendances'] = []
-            q = db.session.query(Lecture, Attendance, ClassStudent).join(ClassLecture).join(Attendance).join(ClassStudent).filter(ClassStudent.student_id == id)
-            for lecture, attendance, class_student in q:
-                obj = attendance.json
-                obj['lecture'] = lecture.json
-                obj['class_student_id'] = class_student.id
-                ret['attendances'].append(obj)
-
-        return jsonify({"meta": {}, "data": ret}), 200
-
-    @try_except
     def post(self):
-        data = [{"name": "Matthew"}, {"name": "Chandler"}]
-
         data = extract_data()
 
         # This ensures the order of the response is identical to the request
@@ -1299,7 +1355,10 @@ class StudentView(BaseView):
 
             if not 'id' in obj:
                 # This is a new Student to create
-                obj['type'] = 'teacher'
+                obj['type'] = 'student'
+                if not 'password' in obj:
+                    raise UserError("Missing password")
+                obj['password'] = encrypt_password(obj['password'])
                 user = json_to_model(User, obj=obj, keys=User.post_keys)
                 users.append(user)
                 student.user = user
@@ -1310,7 +1369,6 @@ class StudentView(BaseView):
                 student.id = obj['id']
 
             ordered_students.append(student)
-
 
         if users:
             # Student inherits from Users, so save Users first and get the PK
@@ -1375,7 +1433,14 @@ class StudentView(BaseView):
                 ret['class_id'] = student.class_student.class_id
                 ret['class_student_id'] = student.class_student.id
 
+            if hasattr(student, 'user'):
+                ret['first_name'] = student.user.first_name
+                ret['last_name'] = student.user.last_name
+                ret['email'] = student.user.email
+
             rets.append(ret)
+
+        app.logger.debug("WTF RETS ARE {}".format(rets))
 
         db.session.commit()
 
@@ -1692,6 +1757,9 @@ class OrgView(BaseView):
 
         return jsonify({"meta": meta, "data": data}), 200
 
+
+
+
     @try_except
     def post(self):
         '''
@@ -1715,7 +1783,7 @@ class OrgView(BaseView):
         for org in orgs:
             teacher = Teacher()
             # TODO: Make a better solution for the selection of the email and password
-            user = User(first_name='Default', last_name='Default', email='default-course-mgmt-teacher@{}.com'.format(org.name), password='default_password', type='teacher')
+            user = create_user(first_name='Default', last_name='Default', email='default-course-mgmt-teacher@{}.com'.format(org.name), password='default_password', type='teacher')
             teacher.user = user
             teacher.org = org
 
@@ -1782,7 +1850,11 @@ class OrgView(BaseView):
         default_student_users = []
         for clazz in default_classes:
             student = Student(github_username='default-course-mgmt-teacher@{}.com'.format(clazz.course.name))
-            user = User(first_name='Default', last_name='Default', email='default-course-mgmt-teacher@{}.com'.format(clazz.course.name), password='default_password', type='student')
+            user = create_user(first_name='Default', last_name='Default',
+                               email='default-course-mgmt-teacher@{}.com'.format(clazz.course.name),
+                               password='default_password',
+                               type='student',
+                               is_default=True)
             student.user = user
             clazz.student = student
 
@@ -1831,7 +1903,67 @@ class OrgView(BaseView):
         return jsonify({"meta": {"len": len(rets)}, "data": rets})
 
 
+class TeacherView(BaseView):
+    model = Teacher
 
-views = [OrgView, CourseView, ClassView, StudentView, LectureView, HomeworkView, AssignmentView, AttendanceView]
+
+    @try_except
+    @login_required
+    @route('/<int:id>/', methods=['GET'])
+    def get(self, id=None):
+        get_org, get_course = parse_data_from_query_args(['org', 'course'])
+        org_id, = parse_id_from_query_args()
+
+    @try_except
+    def post(self):
+        data = extract_data()
+
+        # This contains the new Teachers to create (where "id" is not present)
+        teachers = []
+        users = []
+
+        for obj in data:
+            teacher = Teacher()
+
+            if not 'id' in obj:
+                # This is a new Teacher to create
+                obj['type'] = 'teacher'
+                if not 'password' in obj:
+                    raise UserError("Missing password")
+                obj['password'] = encrypt_password(obj['password'])
+
+                user = json_to_model(User, obj=obj, keys=User.post_keys)
+                users.append(user)
+                teacher.user = user
+
+                json_to_model(model=Teacher, obj=obj, keys=Teacher.post_keys, model_inst=teacher)
+                teachers.append(teacher)
+
+        if users:
+            db.session.bulk_save_objects(users, return_defaults=True)
+            for teacher in teachers:
+                teacher.id = teacher.user.id
+                teacher.first_name = teacher.user.first_name
+                teacher.last_name = teacher.user.last_name
+                teacher.email = teacher.user.email
+
+            db.session.bulk_save_objects(teachers, return_defaults=True)
+
+        ret = []
+        for teacher in teachers:
+            obj = teacher.json
+            obj['first_name'] = teacher.first_name
+            obj['last_name'] = teacher.last_name
+            obj['email'] = teacher.email
+            ret.append(obj)
+
+        db.session.commit()
+
+        return jsonify({"meta": {"len": len(teachers)}, "data": ret}), 200
+
+
+
+
+views = [OrgView, TeacherView, CourseView, ClassView, StudentView, LectureView, HomeworkView, AssignmentView, AttendanceView]
 for view in views:
     view.register(app, route_prefix='/api/', trailing_slash=True)

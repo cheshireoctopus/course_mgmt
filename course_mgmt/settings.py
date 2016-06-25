@@ -8,6 +8,7 @@ class ConfigBase(object):
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     BASEDIR = os.path.abspath(os.path.dirname(__file__))
     SECRET_KEY = 'abc123'
+    #SESSION_COOKIE_SECURE = True
 
 
 class Config(ConfigBase):

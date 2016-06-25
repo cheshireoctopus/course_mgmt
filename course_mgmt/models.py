@@ -137,13 +137,14 @@ class User(BaseModel):
     last_name = db.Column(db.String, nullable=False)
     email = db.Column(db.String, nullable=False)
     password = db.Column(db.String, nullable=False)
+    is_default = db.Column(db.Boolean, nullable=False, default=False)
     type = db.Column(db.String, nullable=False)
 
     __table_args__ = (db.CheckConstraint("first_name <> ''"),
                       db.CheckConstraint("last_name <> ''"),
                       db.CheckConstraint("email <> ''"),
                       db.CheckConstraint("password <> ''"),
-                      db.CheckConstraint("type in ('teacher', 'student')"),
+                      db.CheckConstraint("type in ('teacher', 'student', 'admin')"),
                       {'sqlite_autoincrement': True})
 
     post_keys = ['first_name', 'last_name', 'email', 'password', 'type']
@@ -156,6 +157,9 @@ class Teacher(BaseModel):
         id = db.Column(SMALLINT, db.ForeignKey('user.id', ondelete='CASCADE'), primary_key=True)
     else:
         id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), primary_key=True)
+
+
+    post_keys = []
 
 
 class Student(BaseModel):
