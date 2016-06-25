@@ -1226,8 +1226,8 @@ class TestInitializations(unittest.TestCase):
 
         self.assertEquals(attendance['class_lecture_id'], class_lecture_id)
         self.assertEquals(attendance['class_student_id'], class_student_id)
-        # attendance defaults to False
-        self.assertEquals(attendance['did_attend'], False)
+        # attendance defaults to Null
+        self.assertEquals(attendance['did_attend'], None)
         self.assertEquals(attendance['class']['id'], class_id)
         self.assertEquals(attendance['class']['name'], "Spring 2016")
         self.assertEquals(attendance['lecture']['id'], lecture_id)
