@@ -288,6 +288,8 @@ def bulk_update(model, data):
         db.session.bulk_update_mappings(model, objs)
     except IntegrityError as ex:
         return UserError(ex.message)
+    except AttributeError as ex:
+        raise UserError("Probably sent an illegal key: {}".format(ex.message))
 
 
 
