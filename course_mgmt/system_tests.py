@@ -4,7 +4,7 @@ from course_mgmt.models import *  # db, all_models
 import unittest
 import requests
 from course_mgmt.views.api import extract_data, parse_data_from_query_args, parse_id_from_query_args, json_to_model
-from course_mgmt.views.api import hardcore_update, delete_db
+from course_mgmt.views.api import hardcore_update, delete_db, parse_boolean_from_query_args
 import json
 from sqlalchemy.orm.exc import NoResultFound
 URL = 'http://localhost:5000'
@@ -66,7 +66,8 @@ def drop_and_create_db():
 
 
     api = '/api/drop/'
-    r = hit_api(api)
+    method = 'DELETE'
+    r = hit_api(api, method=method)
 
     # Change the starting sequences to try to find bugs in join conditions
     if app.config['DATABASE'] == 'sqlite':
@@ -367,6 +368,54 @@ def create_student_dependent(class_id, first_name, last_name, github_username, e
 
     return hit_api(api, data, method=method)
 
+def create_teacher_independent(first_name, last_name, email, password):
+    api = '/api/teacher/'
+    method = 'POST'
+    data = {
+        'data': [
+            {
+                'first_name': first_name,
+                'last_name': last_name,
+                'email': email,
+                'password': password
+            }
+        ]
+    }
+
+    return hit_api(api, data, method=method)
+
+def create_teacher_dependent(org_id, clone_org_teacher_id, first_name, last_name, email, password):
+    api = '/api/teacher/'
+    method = 'POST'
+    data = {
+        'data': [
+            {
+                'org_id': org_id,
+                'clone_org_teacher_id': clone_org_teacher_id,
+                'first_name': first_name,
+                'last_name': last_name,
+                'email': email,
+                'password': password
+            }
+        ]
+    }
+
+    return hit_api(api, data, method=method)
+
+def create_org(teacher_id, name):
+    api = '/api/org/'
+    method = 'POST'
+    data = {
+        'data': [
+            {
+                'teacher_id': teacher_id,
+                'name': name
+            }
+        ]
+    }
+
+    return hit_api(api, data, method=method)
+
 def update_class_homework(class_homework_id, name):
     '''
     Used to update a homework that is associated to a class
@@ -509,6 +558,45 @@ def delete_class_lecture(id=None, class_id=None, class_lecture_id=None):
     }
 
     return hit_api(api, data, method=method)
+
+
+class TestHxc(unittest.TestCase):
+    def setUp(self):
+        # Drop and recreate the database
+        self.assertEquals(200, drop_and_create_db().status_code)
+
+    def test_happy_path_all(self):
+        '''
+        This system test hits all of the create APIs happy path
+        The purpose of this is to quickly tell if anything major is broken
+        :return:
+        '''
+
+        # Create admin teacher
+        r = create_teacher_independent(first_name='Matthew', last_name='Moisen', email='matthewteacher@gmail.com', password='password')
+        self.assertEquals(r.status_code, 200)
+        admin_teacher_id = get_first_id_from_response(r)
+
+        # Create org with admin
+        r = create_org(teacher_id=admin_teacher_id, name='Matthews Org')
+        self.assertEquals(r.status_code, 200)
+        org_id = get_first_id_from_response(r)
+        default_teacher_id = r.json()['data'][0]['default_teacher']['id']
+
+        # Todo verify default course, course homework, course lectures exist
+
+
+        # Add new teacher to org and clone default teacher
+
+        r = create_teacher_dependent(org_id=org_id, clone_org_teacher_id=default_teacher_id, first_name='Chandler', last_name='Moisen', email='chandlerteacher@gmail.com', password='password')
+        self.assertEquals(r.status_code, 200)
+        real_teacher_id = get_first_id_from_response(r)
+
+        # Todo verify new teacher has course, course homework, and course lectures initialized
+
+        # default 1703
+        # org 1
+
 
 class TestAll(unittest.TestCase):
     def setUp(self):
@@ -1513,6 +1601,33 @@ class TestParseIdFromQueryArgs(unittest.TestCase):
             except UserError as ex:
                 self.assertEquals(ex.message, "id must be int, not 'bar'")
 
+class TestParseBooleanFromQueryArgs(unittest.TestCase):
+    def setUp(self):
+        self.app = Flask(__name__)
+
+    def test_happy(self):
+        with self.app.test_request_context('?is_default=true&is_foo=false'):
+
+            is_default, is_foo = parse_boolean_from_query_args(['is_default', 'lecture_id'])
+
+            self.assertEquals(is_default, True)
+            self.assertEquals(is_foo, False)
+
+    def test_differeing_server_keys(self):
+        with self.app.test_request_context('?a=1&b=2'):
+            is_default, is_foo = parse_boolean_from_query_args(['is_default', 'is_foo'])
+
+            self.assertEquals(is_default, False)
+            self.assertEquals(is_foo, False)
+
+    def test_bad_boolean(self):
+        with self.app.test_request_context('?is_default=1'):
+            self.assertRaises(UserError, parse_boolean_from_query_args, ['is_default'])
+
+            try:
+                parse_boolean_from_query_args(['is_default'])
+            except UserError as ex:
+                self.assertEquals(ex.message, "Expecting is_default to be either 'true' or 'false'")
 
 class TestExtractData(unittest.TestCase):
     def setUp(self):

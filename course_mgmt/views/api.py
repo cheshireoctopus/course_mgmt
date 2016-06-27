@@ -31,8 +31,20 @@ def create_user(**kwargs):
     if sha256_crypt.identify(kwargs['password']):
         raise ServerError("Don't encrypt password before calling create_user")
 
-    kwargs['password'] = sha256_crypt.encrypt(kwargs['password'])
-    user = User(**kwargs)
+    try:
+        user_kwargs = {
+            'first_name': kwargs['first_name'],
+            'last_name': kwargs['last_name'],
+            'email': kwargs['email'],
+            'password': sha256_crypt.encrypt(kwargs['password']),
+            'is_default': kwargs['is_default'] if 'is_default' in kwargs else False,
+            'type': kwargs['type']
+        }
+    except KeyError as ex:
+        return UserError("Missing key: {}".format(ex.message))
+
+    user = User(**user_kwargs)
+
     return user
 
 '''
@@ -94,6 +106,9 @@ def check_authorization(required_minimum_privilege):
         q = db.session.query(Privilege).join(OrgTeacherPrivilege).join(OrgTeacher).filter(OrgTeacher.teacher_id == id)
     elif type == 'student':
         q = db.session.query(Privilege).join(ClassStudentPrivilege).join(ClassStudent).filter(ClassStudent.student_id == id)
+    elif type == 'admin':
+        return True
+
     else:
         raise ServerError("illegal type {}, should be teacher or student".format(type))
 
@@ -102,6 +117,7 @@ def check_authorization(required_minimum_privilege):
     if required_minimum_privilege not in user_privileges:
         raise AuthorizationError("You need a minium privilege of {}".format(required_minimum_privilege))
 
+    return True
 
 
 
@@ -227,6 +243,18 @@ def parse_id_from_query_args(keys):
 
     return tuple(ret[key] for key in keys)
 
+
+def parse_boolean_from_query_args(keys):
+    ret = {key: False for key in keys}
+
+    for k, v in request.args.iteritems():
+        if k in keys:
+            v = v.lower()
+            if not v in ('true', 'false'):
+                raise UserError("Expecting {} to be either 'true' or 'false'".format(k))
+            ret[k] = True if v == 'true' else False
+
+    return tuple(ret[key] for key in keys)
 
 def try_except(func):
     '''
@@ -932,7 +960,7 @@ def delete_db():
     num_deleted = 0
     num_deleted += db.session.query(Org).delete()
     num_deleted += db.session.query(User).delete()
-    num_deleted += db.session.query(Role).delete()
+    num_deleted += db.session.query(Privilege).delete()
     num_deleted += db.session.query(Tag).delete()
     num_deleted += db.session.query(Homework).delete()
     num_deleted += db.session.query(Lecture).delete()
@@ -946,7 +974,11 @@ def delete_db():
 
 def instantiate_privileges():
     privileges = TEACHER_DEFAULT_PRIVILEGES + STUDENT_DEFAULT_PRIVIELGES
-    db.session.bulk_save_objects(privileges, return_defaults=True)
+    db.session.bulk_save_objects(TEACHER_DEFAULT_PRIVILEGES, return_defaults=True)
+    db.session.bulk_save_objects(STUDENT_DEFAULT_PRIVIELGES, return_defaults=True)
+
+    for privilege in TEACHER_DEFAULT_PRIVILEGES:
+        app.logger.debug("id is {}".format(privilege.id))
 
     return privileges
 
@@ -1012,8 +1044,8 @@ def drop_db():
     '''
     db.drop_all()
     db.create_all()
-    instantiate_privileges()
-    db.session.commit()
+    #instantiate_privileges()
+    #db.session.commit()
     return jsonify({}), 200
 
 
@@ -1388,10 +1420,7 @@ class StudentView(BaseView):
             if not 'id' in obj:
                 # This is a new Student to create
                 obj['type'] = 'student'
-                if not 'password' in obj:
-                    raise UserError("Missing password")
-                obj['password'] = encrypt_password(obj['password'])
-                user = json_to_model(User, obj=obj, keys=User.post_keys)
+                user = create_user(**obj)
                 users.append(user)
                 student.user = user
 
@@ -1426,7 +1455,7 @@ class StudentView(BaseView):
         if class_students:
             db.session.bulk_save_objects(class_students, return_defaults=True)
 
-            # Instantiate Attendance and Assignments
+            # TODO Instantiate Attendance and Assignments and Privileges
 
 
             class_ids = [class_student.class_id for class_student in class_students]
@@ -1799,15 +1828,41 @@ class OrgView(BaseView):
             a default teacher, org_teacher, org_teacher_roles should be created.
             a default course, class, student, class_student, and class_student_roles should be created
 
+        The adminteacher person should build out the course homework and class homework for this default teacher.
+
+        When a normal teacher is added to an org, there needs to be a "clone" option that takes all the values
+            from this default teacher (or perhaps another default teacher) and creates the normal teachers
+            course homework/lecture from that
+
         Should an "admin" teacher be created too?
             Or does a user sign up in order to create the org, thus being the "admin teacher" ?
+            hmm for now I'm going to require that a teacher_id be passed in to this post to indicate
+                that this teacher is the admin for this org
 
         This method is realllly long to handle all those cases above... perhaps a better db design is warranted
         :return:
         '''
         data = extract_data()
+        orgs = []
 
-        orgs = bulk_save(Org, data, Org.post_keys)
+        for obj in data:
+            # This forces all newly created org to be associated with a teacher
+            # So a User signs up first, and then creates the org. This user's teacher_id must be passed in
+            if 'teacher_id' not in obj:
+                raise UserError("A teacher_id must be provided to create an org")
+            org = json_to_model(Org, obj=obj, keys=Org.post_keys)
+            org.teacher_id = obj['teacher_id']
+            orgs.append(org)
+
+        db.session.bulk_save_objects(orgs, return_defaults=True)
+
+        # Attach admin users
+        admin_org_teachers = []
+        for org in orgs:
+            admin_org_teacher = OrgTeacher(org_id=org.id, teacher_id=org.teacher_id)
+            admin_org_teachers.append(admin_org_teacher)
+
+        db.session.bulk_save_objects(admin_org_teachers)
 
         # Create default Teachers
         default_teachers = []
@@ -1815,7 +1870,9 @@ class OrgView(BaseView):
         for org in orgs:
             teacher = Teacher()
             # TODO: Make a better solution for the selection of the email and password
-            user = create_user(first_name='Default', last_name='Default', email='default-course-mgmt-teacher@{}.com'.format(org.name), password='default_password', type='teacher')
+            user = create_user(first_name='Default', last_name='Default',
+                               email='default-course-mgmt-teacher@{}.com'.format(org.name), password='default_password',
+                               type='teacher', is_default=True)
             teacher.user = user
             teacher.org = org
 
@@ -1834,43 +1891,83 @@ class OrgView(BaseView):
 
         db.session.bulk_save_objects(default_teachers, return_defaults=True)
 
+
+
         # Create OrgTeachers for Default Teachers
         org_teachers = []
         for org in orgs:
-            org_teacher = OrgTeacher(org_id=org.id, teacher_id=org.teacher.id)
-            org.teacher.org_teacher = org_teacher
-            org_teachers.append(org_teacher)
+            default_org_teacher = OrgTeacher(org_id=org.id, teacher_id=org.teacher.id)
+            org.teacher.org_teacher = default_org_teacher
+            org_teachers.append(default_org_teacher)
 
         db.session.bulk_save_objects(org_teachers, return_defaults=True)
 
         # Add default roles to this OrgTeacher
-        q = db.session.query(Role).filter(Role.name.in_(TEACHER_ROLE_NAMES))
-        org_teacher_roles = []
+
+        #q = db.session.query(Privilege).filter(Privilege.name.in_(TEACHER_ROLE_NAMES))
+        #TODO Take care of privileges
+        '''
+        org_teacher_privileges = []
         for org_teacher in org_teachers:
-            org_teacher.org_teacher_roles = []
-            for role in q:
-                role_org_teacher = OrgTeacherRole(org_teacher_id=org_teacher.id, role_id=role.id)
-                org_teacher.org_teacher_roles.append(role_org_teacher)
-                org_teacher_roles.append(role_org_teacher)
+            org_teacher.org_teacher_privileges = []
+            for privilege in TEACHER_DEFAULT_PRIVILEGES:
+                app.logger.debug("WTF Privilege id is {}".format(privilege.id))
+                org_teacher_privilege = OrgTeacherPrivilege(org_teacher_id=org_teacher.id, privilege_id=privilege.id)
+                org_teacher.org_teacher_privileges.append(org_teacher_privilege)
+                org_teacher_privileges.append(org_teacher_privilege)
 
-        db.session.bulk_save_objects(org_teacher_roles, return_defaults=True)
-
+        db.session.bulk_save_objects(org_teacher_privileges, return_defaults=True)
+        '''
         ## Add default Course, Class, ClassStudent, and ClassStudent Roles
         # TODO maybe this should be reanalyzed for a better solution
 
         # Add default Course
         default_courses = []
         for org_teacher in org_teachers:
+            # TODO should course have a is_default column ?
             course = Course(name='default', org_teacher_id=org_teacher.id)
             org_teacher.course = course
             default_courses.append(course)
 
         db.session.bulk_save_objects(default_courses, return_defaults=True)
 
+        # Add default Lecture
+        lectures = []
+        for course in default_courses:
+            lecture = Lecture(name='Default', description='Default')
+            lecture.course = course
+            lectures.append(lecture)
+
+        db.session.bulk_save_objects(lectures, return_defaults=True)
+
+        course_lectures = []
+        homeworks = []
+        for lecture in lectures:
+            course_lecture = CourseLecture(course_id=lecture.course.id, lecture_id=lecture.id)
+            course_lectures.append(course_lecture)
+
+            homework = Homework(name='Default')
+            homework.course_lecture = course_lecture
+            homeworks.append(homework)
+
+        db.session.bulk_save_objects(course_lectures, return_defaults=True)
+        db.session.bulk_save_objects(homeworks, return_defaults=True)
+
+        course_homeworks = []
+        for homework in homeworks:
+            course_homework = CourseHomework(course_id=homework.course_lecture.course_id,
+                                             homework_id=homework.id,
+                                             course_lecture_id=homework.course_lecture.lecture_id)
+            course_homeworks.append(course_homework)
+
+        db.session.bulk_save_objects(course_homeworks, return_defaults=True)
+
+
         # Add default Class
         class_dt = datetime.now()
         default_classes = []
         for course in default_courses:
+            # TODO Should course have is_default column?
             clazz = Class(name='default', start_dt=class_dt, end_dt=class_dt, course_id=course.id)
             default_classes.append(clazz)
             clazz.course = course
@@ -1909,17 +2006,19 @@ class OrgView(BaseView):
         db.session.bulk_save_objects(default_class_students, return_defaults=True)
 
         # Add the default rolls to the class student
-        q = db.session.query(Role).filter(Role.name.in_(STUDENT_ROLE_NAMES))
-        class_student_roles = []
+        #q = db.session.query(Role).filter(Role.name.in_(STUDENT_ROLE_NAMES))
+        # TODO Take care of privileges
+        '''
+        class_student_privileges = []
         for class_student in default_class_students:
-            class_student.class_student_roles = []
-            for role in q:
-                class_student_role = ClassStudentRole(class_student_id=class_student.id, role_id=role.id)
-                class_student.class_student_roles.append(class_student_role)
-                class_student_roles.append(class_student_role)
+            class_student.class_student_privileges = []
+            for privilege in STUDENT_DEFAULT_PRIVIELGES:
+                class_student_privilege = ClassStudentPrivilege(class_student_id=class_student.id, privilege_id=privilege.id)
+                class_student.class_student_privileges.append(class_student_privilege)
+                class_student_privileges.append(class_student_privilege)
 
-        db.session.bulk_save_objects(class_student_roles, return_defaults=True)
-
+        db.session.bulk_save_objects(class_student_privileges, return_defaults=True)
+        '''
         rets = []
         for org in orgs:
             org_obj = org.json
@@ -1934,19 +2033,43 @@ class OrgView(BaseView):
 
         return jsonify({"meta": {"len": len(rets)}, "data": rets})
 
+class AdminView(BaseView):
+    model = User
+
+    @try_except
+    def post(self):
+        data = extract_data()
+
+        users = []
+        for obj in data:
+            obj['type'] = 'admin'
+            user = create_user(**obj)
+            users.append(user)
+
+        db.session.bulk_save_objects(users, return_defaults=True)
+
+
+        rets = []
+        for user in users:
+            obj = user.json
+            del obj['password']
+
+        db.session.commit()
+
+        return jsonify({"meta": {"len": len(users)}, "data": rets})
 
 class TeacherView(BaseView):
     model = Teacher
 
 
     @try_except
-    @login_required
+    #@login_required
     @route('/<int:id>/', methods=['GET'])
     def get(self, id=None):
-        #check_authorization(Privilege(model='teacher', action='read', level=))
 
-        get_org, get_course, get_role = parse_data_from_query_args(['org', 'course'])
+        get_org, get_course = parse_data_from_query_args(['org', 'course'])
         org_id, = parse_id_from_query_args(['org_id'])
+        is_default, = parse_boolean_from_query_args(['is_default'])
 
         teachers = {}  # { teacher_id: teacher json }
         teacher_list = []
@@ -1956,8 +2079,11 @@ class TeacherView(BaseView):
             if id is not None:
                 q = q.filter(Teacher.id == id)
 
+            if is_default:
+                q = q.filter(User.is_default == True)
+
             for user, teacher in q:
-                obj = user.json()
+                obj = user.json
                 del obj['password']
 
                 teacher_list.append(obj)
@@ -1968,6 +2094,9 @@ class TeacherView(BaseView):
 
             if id is not None:
                 q = q.filter_by(id=id)
+
+            if is_default:
+                q = q.filter(User.is_default == True)
 
             for user, teacher, org_teacher in q:
                 obj = user.json
@@ -1983,10 +2112,10 @@ class TeacherView(BaseView):
             if get_course:
                 teacher['courses'] = []
 
-            if get_role:
-                teacher['roles'] = []
+            #if get_privilege:
+            #    teacher['privileges'] = []
 
-            teacher[teacher['id']] = teacher
+            teachers[teacher['id']] = teacher
 
         teacher_ids = teachers.keys()
 
@@ -2011,20 +2140,21 @@ class TeacherView(BaseView):
                 obj['org_teacher_id'] = org_teacher.id
 
                 teachers[org_teacher.id]['courses'].append(obj)
-
-        if get_role:
-            q = db.session.query(Role, OrgTeacherRole).join(OrgTeacherRole).join(OrgTeacher) \
+        '''
+        if get_privilege:
+            q = db.session.query(Privilege, OrgTeacherPrivilege).join(OrgTeacherPrivilege).join(OrgTeacher) \
                 .filter(OrgTeacher.teacher_id.in_(teacher_ids))
 
             for role, org_teacher_role in q:
                 obj = role.json
-                obj['org_teacher_role_id'] = org_teacher_role.id
+                obj['org_teacher_privilege_id'] = org_teacher_role.id
                 obj['org_teacher_id'] = org_teacher_role.org_teacher_id
 
-                teachers[org_teacher.id]['roels'].append(obj)
+                teachers[org_teacher.id]['privileges'].append(obj)
+        '''
 
         data = teachers.values()
-        meta = {"len": data}
+        meta = {"len": len(data)}
         if id is not None:
             data = data[0]
             meta = {}
@@ -2032,10 +2162,17 @@ class TeacherView(BaseView):
         return jsonify({"meta": meta, "data": data}), 200
 
 
-
     @try_except
     def post(self):
+        '''
+        A teacher can be added independently, or be created and added to an Org.
+
+        If a teacher is to be added to an org, a default teacher's course homework/lectures can be cloned.
+        :return:
+        '''
         data = extract_data()
+
+        ordered_teachers = []
 
         # This contains the new Teachers to create (where "id" is not present)
         teachers = []
@@ -2047,16 +2184,23 @@ class TeacherView(BaseView):
             if not 'id' in obj:
                 # This is a new Teacher to create
                 obj['type'] = 'teacher'
-                if not 'password' in obj:
-                    raise UserError("Missing password")
-                obj['password'] = encrypt_password(obj['password'])
-
-                user = json_to_model(User, obj=obj, keys=User.post_keys)
+                user = create_user(**obj)
                 users.append(user)
                 teacher.user = user
 
                 json_to_model(model=Teacher, obj=obj, keys=Teacher.post_keys, model_inst=teacher)
                 teachers.append(teacher)
+
+            if 'org_id' in obj:
+                # Add this teacher to an Org
+                teacher.org_id = obj['org_id']
+                if 'clone_org_teacher_id' in obj:
+                    teacher.clone_org_teacher_id = obj['clone_org_teacher_id']
+                    # Clone the course homework/lecture from this org_teacher_id into this teacher
+
+                # TODO should I raise an error if this isn't present, or is that a valid use case?
+
+            ordered_teachers.append(teacher)
 
         if users:
             db.session.bulk_save_objects(users, return_defaults=True)
@@ -2068,6 +2212,196 @@ class TeacherView(BaseView):
 
             db.session.bulk_save_objects(teachers, return_defaults=True)
 
+        org_teachers = []
+        for teacher in ordered_teachers:
+            if hasattr(teacher, 'org_id'):
+                org_teacher = OrgTeacher(org_id=teacher.org_id, teacher_id=teacher.id)
+                org_teachers.append(org_teacher)
+                teacher.org_teacher = org_teacher
+
+        if org_teachers:
+            db.session.bulk_save_objects(org_teachers, return_defaults=True)
+
+        # Clone here
+        # This is somewhat sketchy
+        # clone_map is a dict of {
+        #   clone_org_teacher_id:
+        #       {
+        #           'teachers': [list of teachers to clone this org_teacher_id],
+        #           'courses': {course_id: course with course_homeworks}
+        #       }
+        clone_map = {}
+        for teacher in ordered_teachers:
+            if hasattr(teacher, 'clone_org_teacher_id'):
+                if teacher.clone_org_teacher_id not in clone_map:
+                    clone_map[teacher.clone_org_teacher_id] = {
+                        'teachers': [teacher],
+                        'courses': {}
+                    }
+                else:
+                    clone_map[teacher.clone_org_teacher_id]['teachers'].append(teacher)
+
+        if clone_map.keys():
+            # Query all the courses and course homeworks for all default teachers to clone
+            q = db.session.query(Course, CourseHomework).outerjoin(CourseHomework).filter(Course.org_teacher_id.in_(clone_map.keys()))
+            for course, course_homework in q:
+                courses = clone_map[course.org_teacher_id]['courses']
+                if course.id not in courses:
+                    courses[course.id] = course
+                    course_homeworks = [course_homework] if course_homework is not None else []
+                    courses[course.id].course_homeworks = course_homeworks
+                    courses[course.id].course_lectures = []
+                    if course_homework is not None:
+                        courses[course.id].homework_lecture_map = {course_homework.course_lecture_id: None}
+                        # The None value will be replaced by the actual default matching course lecture in the next query
+                    else:
+                        courses[course.id].homework_lecture_map = {}
+                else:
+                    if course_homework is not None:
+                        courses[course.id].course_homeworks.append(course_homework)
+
+            # Query all the courses and course lectures for all the default teachers to clone
+            q = db.session.query(Course, CourseLecture).outerjoin(CourseLecture).filter(Course.org_teacher_id.in_(clone_map.keys()))
+            for course, course_lecture in q:
+                # course_lectures array already instantiated in the course homework query above
+                courses = clone_map[course.org_teacher_id]['courses']
+                if course_lecture is not None:
+                    courses[course.id].course_lectures.append(course_lecture)
+                    # Add the default matching course lecture indexed by the default course lecture
+                    courses[course.id].homework_lecture_map[course_lecture.id] = course_lecture
+
+            # Now we have our clone_map totally prepared with all the default teachers to clone and the new teachers
+
+            course_insert_list = []
+
+            for _, to_clone in clone_map.iteritems():
+                # to_clone looks like  {'teachers': [...,...], 'courses': {original_course.id: [course1, course2,...]}}
+                # You need to insert one course for each org_teacher right
+                courses = to_clone['courses']
+
+                for teacher in to_clone['teachers']:
+                    for course_id in courses:
+                        course = courses[course_id]
+                        course_to_insert = Course(name=course.name, org_teacher_id=teacher.org_teacher.id)
+                        course_to_insert.course_homeworks = course.course_homeworks
+                        course_to_insert.course_lectures = course.course_lectures
+                        course_to_insert.homework_lecture_map = course.homework_lecture_map
+                        course_insert_list.append(course_to_insert)
+
+            app.logger.debug("course_insert_list {}".format(course_insert_list))
+            db.session.bulk_save_objects(course_insert_list, return_defaults=True)
+
+            course_homework_insert_list = []
+            course_lecture_insert_list = []
+            for course in course_insert_list:
+
+                for course_lecture in course.course_lectures:
+                    course_lecture_to_insert = CourseLecture(course_id=course.id, lecture_id=course_lecture.lecture_id)
+                    course_lecture_insert_list.append(course_lecture_to_insert)
+                    # Switch the old default course_lecture to the newly cloned one.
+                    # Remember it's still indexed by the old default course_lecture_id, which the matching
+                    # course_homework still has access to
+                    course.homework_lecture_map[course_lecture.id] = course_lecture_to_insert
+                    # TODO need to put new course_lecture_id into the homework slot
+
+            db.session.bulk_save_objects(course_lecture_insert_list, return_defaults=True)
+
+            for course in course_insert_list:
+                for course_homework in course.course_homeworks:
+                    course_homework_to_insert = CourseHomework(course_id=course.id,
+                                                               homework_id=course_homework.homework_id)
+                    # Look up the newly cloned course lecture by the old default course lecture id
+                    course_lecture = course.homework_lecture_map.get(course_homework.course_lecture_id, None)
+                    course_homework_to_insert.course_lecture_id = course_lecture.id
+                    course_homework_insert_list.append(course_homework_to_insert)
+
+            db.session.bulk_save_objects(course_homework_insert_list, return_defaults=True)
+
+
+
+        '''
+        # First attempt
+        for teacher in teachers:
+            if hasattr(teacher, 'clone_org_teacher_id'):
+                # Clone homeworks
+                courses = {}
+                q = db.session.query(Course, CourseHomework).join(CourseHomework).filter(Course.org_teacher_id == teacher.clone_org_teacher_id)
+                for course, course_homework in q:
+                    if course.id not in courses:
+                        courses[course.id] = course
+                        courses[course.id].course_homeworks = [course_homework]
+                    else:
+                        courses[course.id].course_homeworks.append(course_homework)
+
+                course_list = []
+                for course_id in courses:
+                    course = courses[course_id]
+                    db.session.expunge(course)
+                    make_transient(course)
+                    course.id = None
+                    course.org_teacher_id = teacher.org_teacher_id
+                    course_list.append(course)
+
+                db.session.bulk_save_objects(course_list)
+
+                # At this point, the key in course {} is useless
+
+                course_homeworks = []
+                for _, course in courses.iteritems():
+                    for course_homework in course.course_homeworks:
+                        db.session.expunge(course_homework)
+                        make_transient(course_homework)
+                        course_homework.id = None
+                        course_homework.course_id = course.id
+                        course_homeworks.append(course_homework)
+
+                db.session.bulk_save_objects(course_homeworks)
+        '''
+        '''
+        # Second attempts
+        clone_org_teacher_ids = []
+        for teacher in teachers:
+            if hasattr(teacher, 'clone_org_teacher_id'):
+                clone_org_teacher_ids.append(teacher.clone_org_teacher_id)
+
+        courses = {}
+        for teacher in teachers:
+            if hasattr(teacher, 'clone_org_teacher_id'):
+                # Clone homeworks
+
+                q = db.session.query(Course, CourseHomework).join(CourseHomework).filter(Course.org_teacher_id.in_(clone_org_teacher_ids))
+                for course, course_homework in q:
+                    if course.id not in courses:
+                        courses[course.id] = course
+                        courses[course.id].course_homeworks = [course_homework]
+                    else:
+                        courses[course.id].course_homeworks.append(course_homework)
+
+                course_list = []
+                for course_id in courses:
+                    course = courses[course_id]
+                    db.session.expunge(course)
+                    make_transient(course)
+                    course.id = None
+                    course_list.append(course)
+
+                db.session.bulk_save_objects(course_list)
+
+                # At this point, the key in course {} is useless
+
+                course_homeworks = []
+                for _, course in courses.iteritems():
+                    for course_homework in course.course_homeworks:
+                        db.session.expunge(course_homework)
+                        make_transient(course_homework)
+                        course_homework.id = None
+                        course_homework.course_id = course.id
+                        course_homeworks.append(course_homework)
+
+                db.session.bulk_save_objects(course_homeworks)
+        '''
+
+        # Todo probably add new courses/homeworks/lectures??
         ret = []
         for teacher in teachers:
             obj = teacher.json

@@ -343,6 +343,9 @@ class Privilege(BaseModel):
 
         return True
 
+
+
+
 TEACHER_DEFAULT_PRIVILEGES = [
     Privilege(model='course', action='write', level='teacher'),
     Privilege(model='homework', action='write', level='teacher'),
@@ -398,11 +401,13 @@ class ClassStudentPrivilege(BaseModel):
 
 class Course(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String, unique=True, nullable=False)
+    name = db.Column(db.String, nullable=False)
     org_teacher_id = db.Column(db.Integer, db.ForeignKey('org_teacher.id', ondelete='CASCADE'), nullable=False)
     classes = db.relationship('Class', backref=db.backref('course'))
 
-    __table_args__ = (db.CheckConstraint("name <> ''"), {'sqlite_autoincrement': True})
+    __table_args__ = (db.UniqueConstraint('org_teacher_id', 'name'),
+                      db.CheckConstraint("name <> ''"),
+                      {'sqlite_autoincrement': True})
 
 
 class Class(BaseModel):
