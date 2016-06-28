@@ -23,7 +23,7 @@ module.exports = React.createClass({
 					<td>{student.last_name}</td>
 					<td><a onClick={e => {e.stopPropagation()}} href={utils.githubUserProfile(student.github_username)}>{student.github_username}</a></td>
 					<td>{student.email}</td>
-					<td>{student.classes[0].name}</td>
+					<td>{student.classes.length && student.classes[0].name}</td>
 				</tr>
 			)
 		})

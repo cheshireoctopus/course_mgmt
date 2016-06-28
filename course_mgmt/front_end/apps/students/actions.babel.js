@@ -38,7 +38,7 @@ module.exports = {
 				url: API.STUDENT,
 				type: 'DELETE',
 				data: JSON.stringify(data),
-				contentType: 'application/JSON',
+				contentType: 'application/json',
 			})
 			.then(() => {
 				$.when(
@@ -100,7 +100,7 @@ function createStudent (student) {
 			url: API.STUDENT,
 			type: 'POST',
 			data: JSON.stringify(data),
-			contentType: 'application/JSON',
+			contentType: 'application/json',
 		})
 		.then(res => {
 			$.when(
@@ -127,7 +127,7 @@ function editStudent (editedStudent) {
 			url: API.STUDENT,
 			type: 'PUT',
 			data: JSON.stringify(data),
-			contentType: 'application/JSON',
+			contentType: 'application/json',
 		})
 		.then(res => {
 			let studentId = editedStudent.id

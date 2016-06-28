@@ -5,7 +5,7 @@ let initialState = Immutable.Map({
 	classObj: Immutable.Map(),
 	classes: Immutable.List(),
 	courses: Immutable.List(),
-	isLoading: false,
+	isLoading: true,
 	isShowingClass: false,
 	studentsByClass: Immutable.List(),
 	isShowingForm: false,

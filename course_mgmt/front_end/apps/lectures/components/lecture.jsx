@@ -60,7 +60,24 @@ module.exports = React.createClass({
 	},
 
 	renderClasses () {
-		return <p>Some classes should be here</p>
+		let classes = _.map(this.props.classes, classObj => {
+			return (
+				<tr key={classObj.id}>
+					<td>{classObj.name}</td>
+				</tr>
+			)
+		})
+
+		return (
+			<table className="table table-bordered table-condensed table-striped">
+				<thead>
+					<tr>
+						<td>Class Name</td>
+					</tr>
+				</thead>
+				<tbody>{classes}</tbody>
+			</table>
+		)
 	},
 
 	handleOnDelete () {

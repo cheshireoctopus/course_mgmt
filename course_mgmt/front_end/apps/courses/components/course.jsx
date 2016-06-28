@@ -23,7 +23,7 @@ module.exports = React.createClass({
 		return (
 			<div className="row">
 				<div className="col-md-12">
-					<a onClick={this.props.showCourses}>Back to main</a>
+					<a href="javascript:void(0)" onClick={this.props.showCourses}>Back to main</a>
 					<h3>{this.props.name}</h3>
 					<button onClick={this.handleOnEdit} className="btn btn-warning push-right">Edit</button>
 					<button onClick={this.handleOnDelete} className="btn btn-danger">Delete</button>

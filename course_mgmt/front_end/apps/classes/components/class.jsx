@@ -10,18 +10,27 @@ module.exports = React.createClass({
 	propTypes: {
 		description: React.PropTypes.string,
 		end_dt: React.PropTypes.string,
+		homeworks: React.PropTypes.array.isRequired,
 		id: React.PropTypes.number.isRequired,
+		lectures: React.PropTypes.array.isRequired,
 		location: React.PropTypes.string,
 		name: React.PropTypes.string,
 		start_dt: React.PropTypes.string,
-		studentCount: React.PropTypes.number,
 		students: React.PropTypes.array.isRequired,
 		showClasses: React.PropTypes.func.isRequired,
 		onEdit: React.PropTypes.func.isRequired,
 		onDelete: React.PropTypes.func.isRequired
 	},
 
+	getInitialState () {
+		return {
+			activeTab: 'students'
+		}
+	},
+
 	render () {
+		let activeTab = this.state.activeTab
+
 		return (
 			<div className="row">
 				<div className="col-md-12">
@@ -29,26 +38,41 @@ module.exports = React.createClass({
 				</div>
 				<div className="col-md-12">
 					<h2>{this.props.name}</h2>
+					<p>Start: <DateTime date={this.props.start_dt} /></p>
+					<p>End: <DateTime date={this.props.end_dt} /></p>
+					<p>Location: {this.props.location || 'N/A'}</p>
+					<p>Student Count: {this.props.students.length}</p>
 					<button className="btn btn-warning push-right" onClick={this.handleEdit}>Edit</button>
 					<button className="btn btn-danger" onClick={this.handleDelete}>Delete</button>
 					<hr/>
 				</div>
-				<div className="col-md-2">
-					<h4>Class Details</h4>
-					<p>Start: <DateTime date={this.props.start_dt} /></p>
-					<p>End: <DateTime date={this.props.end_dt} /></p>
-					<p>Location: {this.props.location || 'N/A'}</p>
-					<p>Student Count: {this.props.studentCount || 0}</p>
-				</div>
-				<div className="col-md-10">
-					<h4>Students</h4>
-					{this.props.students && this.props.students.length ? this.renderStudents() : <p>You haven't added any students to this class yet.</p> }
+				<div className="col-md-12">
+					<ul className="nav nav-tabs">
+						<li  onClick={this.setActiveTab.bind(this, 'students')} className={activeTab === 'students' ? 'active' : null}><a href="javascript:void(0)">Students</a></li>
+						<li onClick={this.setActiveTab.bind(this, 'lectures')} className={activeTab === 'lectures' ? 'active' : null} ><a href="javascript:void(0)">Lectures</a></li>
+						<li onClick={this.setActiveTab.bind(this, 'homework')} className={activeTab === 'homework' ? 'active' : null}><a href="javascript:void(0)">Homework</a></li>
+					</ul>
+					<div className="tab-content">
+					    <div className="tab-pane active">
+							{activeTab === 'students' ? this.renderStudents() : null}
+							{activeTab === 'lectures' ? this.renderLectures() : null}
+							{activeTab === 'homework' ? this.renderHomework() : null}
+					    </div>
+					</div>
 				</div>
 			</div>
 		)
 	},
 
+	setActiveTab (tab) {
+		this.setState({
+			activeTab: tab,
+		})
+	},
+
 	renderStudents () {
+		if (!this.props.students.length) return <h4>You haven't added any students to this class yet.</h4>
+
 		let students = _.map(this.props.students, student => {
 			return (
 				<tr key={student.id}>
@@ -75,6 +99,47 @@ module.exports = React.createClass({
 					</tr>
 				</thead>
 				<tbody>{students}</tbody>
+			</table>
+		)
+	},
+
+	renderLectures () {
+		if (!this.props.lectures.length) return <h4>You haven't added any lectures to this class yet.</h4>
+
+		let lectures = _.map(this.props.lectures, lecture => {
+			return (
+				<tr key={lecture.id}>
+					<td>{lecture.name}</td>
+					<td>{lecture.description}</td>
+				</tr>
+			)
+		})
+
+		return (
+			<table className="table table-bordered table-condensed table-striped">
+				<thead>
+					<tr>
+						<th>Lecture Name</th>
+						<th>Description</th>
+					</tr>
+				</thead>
+				<tbody>{lectures}</tbody>
+			</table>
+		)
+	},
+
+	renderHomework () {
+		if (!this.props.homeworks.length) return <h4>You haven't added any homework to this class yet.</h4>
+
+		return (
+			<table className="table table-bordered table-condensed table-striped">
+				<thead>
+					<tr>
+						<th>Homework Name</th>
+						<th>Description</th>
+					</tr>
+				</thead>
+				<tbody></tbody>
 			</table>
 		)
 	},

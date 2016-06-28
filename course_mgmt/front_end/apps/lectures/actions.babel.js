@@ -42,7 +42,7 @@ module.exports = {
 				url: API.LECTURE,
 				type: 'DELETE',
 				data: JSON.stringify(data),
-				contentType: 'application/JSON',
+				contentType: 'application/json',
 			})
 			.then(() => {
 				$.when(
@@ -100,7 +100,7 @@ function createLecture (lecture) {
 			url: API.LECTURE,
 			type: 'POST',
 			data: JSON.stringify(data),
-			contentType: 'application/JSON',
+			contentType: 'application/json',
 		})
 		.then(res => {
 			$.when(

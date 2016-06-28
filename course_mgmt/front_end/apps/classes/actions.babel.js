@@ -60,16 +60,16 @@ module.exports = {
 	},
 
 	showClass (classId) {
-		return (dispatch, getState) => {
+		return dispatch => {
 			dispatch(toggleLoading(true))
 
-			let classes = getState().get('classes').toJS()
-			let classObj = _.findWhere(classes, { id: classId })
-
-			$.get(API.STUDENT + '?class_id=' + classId)
-			.then(res => {
-				dispatch(receiveStudents(res.data))
-				dispatch(receiveClass(classObj))
+			$.when(
+				$.get(API.CLASS + classId + '?data=student,homework,lecture'),
+				$.get(API.STUDENT + '?class_id=' + classId)
+			)
+			.then((classRes, studentRes) => {
+				dispatch(receiveStudents(studentRes[0].data))
+				dispatch(receiveClass(classRes[0].data))
 				dispatch(renderClass())
 				dispatch(toggleLoading(false))
 			})
@@ -97,7 +97,7 @@ function createClass (classObj) {
 			url: API.CLASS,
 			type: 'POST',
 			data: JSON.stringify(data),
-			contentType: 'application/JSON',
+			contentType: 'application/json',
 		})
 		.then(res => {
 			let classes = getState().get('classes').toJS()
@@ -121,7 +121,7 @@ function editClass (editedClass) {
 			url: API.CLASS,
 			type: 'PUT',
 			data: JSON.stringify(data),
-			contentType: 'application/JSON',
+			contentType: 'application/json',
 		})
 		.then(res => {
 			let classId = editedClass.id
