@@ -26,11 +26,16 @@ def verify_password(provided_password, stored_password):
 def create_user(**kwargs):
     '''
     Always use this to create a user, instead of doing so directly.
-    This will guarentee the password is hashed correctly
+    This will guarantee the password is hashed correctly
     '''
-    if sha256_crypt.identify(kwargs['password']):
-        raise ServerError("Don't encrypt password before calling create_user")
+    if 'password' in kwargs:
+        if sha256_crypt.identify(kwargs['password']):
+            # What if user is trolling exceptionally well and hashes his password?
+            raise ServerError("Don't encrypt password before calling create_user")
 
+        kwargs['password'] = sha256_crypt.encrypt(kwargs['password'])
+
+    '''
     try:
         user_kwargs = {
             'first_name': kwargs['first_name'],
@@ -42,8 +47,8 @@ def create_user(**kwargs):
         }
     except KeyError as ex:
         return UserError("Missing key: {}".format(ex.message))
-
-    user = User(**user_kwargs)
+    '''
+    user = User(**kwargs)
 
     return user
 
@@ -57,19 +62,23 @@ from sqlalchemy.orm.exc import NoResultFound
 
 '''
 
+def check_login():
+    '''
+    Use this function anywhere a login is required.
+    Normally the `login_required` decorator will be used, but this method can also be used if fine grain control
+        is required.
+    '''
+
+    if not session or not 'logged_in' in session or not session['logged_in']:
+        raise AuthenticationError("User must login to use this api")
 
 def login_required(f):
+    '''
+    Decorator to enforce the check_login method.
+    '''
     @wraps(f)
     def _login_required(*args, **kwargs):
-        if not session:
-            app.logger.debug("not session")
-        if 'logged_in' not in session:
-            app.logger.debug("logged_in not in session")
-        if not session or not 'logged_in' in session or not session['logged_in']:
-            # If this request is for an API, return a unathorized message
-            # if this request is for a UI, return the login page
-            # TODO implement that logic
-            return jsonify({"error": "not logged in"}), 401
+        check_login()
         return f(*args, **kwargs)
 
     return _login_required
@@ -323,10 +332,12 @@ def try_except(func):
     return _try_except
 
 
-def json_to_model(model, obj, keys, model_inst=None):
+def json_to_model(model, obj, keys=None, model_inst=None):
     '''
     This converts a dict to a new model with the given keys.
     If model_inst is provided, this will mutate the model_inst instead of creating a new model.
+
+    This expects all the keys in post_keys
 
     :param model: a Model class
     :param obj: a dict of keys and values to populate the model class
@@ -335,6 +346,12 @@ def json_to_model(model, obj, keys, model_inst=None):
     :return: an instance of the model
     '''
     kwargs = {}
+
+    if keys is None:
+        if not hasattr(model, 'post_keys'):
+            raise ServerError("post_keys must be defined for the model in bulk_save")
+
+        keys = model.post_keys
 
     for key in keys:
         # All keys should be present in obj
@@ -368,7 +385,7 @@ def json_to_model(model, obj, keys, model_inst=None):
     #m.obj = obj
     return model_inst
 
-def bulk_save(model, data, keys):
+def bulk_save(model, data, keys=None):
     '''
     Helper method to bulk save a single parent model
     This does not commit so make sure to do so elsewhere.
@@ -382,6 +399,11 @@ def bulk_save(model, data, keys):
         # objs = [model(**{key: obj[key] for key in keys}) for obj in data ]
         # Unforunately the above won't work because of date
         # There must be a better way of doing this
+        if keys is None:
+            if not hasattr(model, 'post_keys'):
+                raise ServerError("post_keys must be defined for the model in bulk_save")
+
+            keys = model.post_keys
 
         objs = []
         for obj in data:
@@ -418,6 +440,12 @@ def bulk_save(model, data, keys):
 
 
 def bulk_update(model, data):
+    '''
+    This does not require that all the keys in model.post_keys be provided, obviously.
+    :param model:
+    :param data:
+    :return:
+    '''
     objs = []
     for obj in data:
         kwargs = {}
@@ -951,6 +979,56 @@ def hardcore_post(model):
 
     return jsonify({"meta": {"len": len(rets)}, "data": rets})
 
+
+def update_user(Model):
+    '''
+    This function is shared by StudentView and TeacherView
+    :param Model: either Teacher or Student
+    :return:
+    '''
+    if Model not in (Teacher, Student):
+        raise ServerError("model must be Teacher or Student")
+
+    data = extract_data()
+
+    if not isinstance(data, list):
+        raise UserError("data attribute should be array, not {}".format(type(data)))
+
+    models = []
+    users = []
+    for obj in data:
+        try:
+            id = obj['id']
+        except KeyError:
+            return UserError("PUT requires an id key")
+
+        model = {'id': id}
+        for post_key in Model.post_keys:
+            if post_key in obj:
+                model[post_key] = obj[post_key]
+
+        user_kwargs = {'id': id}
+        for post_key in User.post_keys:
+            if post_key in obj:
+                user_kwargs[post_key] = obj[post_key]
+
+        temp_user = create_user(**user_kwargs).json
+        user = {k: v for k, v in temp_user.iteritems() if v is not None}
+
+        # don't update if the model wasn't touched
+        if len(model) > 1:
+            models.append(model)
+
+        if len(user) > 1:
+            users.append(user)
+
+    bulk_update(User, users)
+    bulk_update(Model, models)
+
+    db.session.commit()
+
+    return jsonify({"meta": {}, "data": {}}), 200
+
 def delete_db():
     '''
     Deletes all the rows in the database.
@@ -1042,6 +1120,7 @@ def drop_db():
     Drops and recreates the db
     :return:
     '''
+    session.clear()
     db.drop_all()
     db.create_all()
     #instantiate_privileges()
@@ -1054,7 +1133,6 @@ def drop_db():
 class BaseView(FlaskView):
     trailing_slash = True
     model = None
-    post_keys = []
 
     def index(self):
         return self.get(None)
@@ -1079,12 +1157,12 @@ class BaseView(FlaskView):
 
     @try_except
     def post(self):
-        if self.model is None or not self.post_keys:
+        if self.model is None or not hasattr(self.model, 'post_keys'):
             raise NotImplementedError("Define model and post_keys")
 
         data = extract_data()
 
-        objs = bulk_save(self.model, data, self.post_keys)
+        objs = bulk_save(self.model, data, self.model.post_keys)
 
         objs = [obj.json for obj in objs]
 
@@ -1138,17 +1216,21 @@ class BaseView(FlaskView):
 
 class CourseView(BaseView):
     model = Course
-    post_keys = ['name']
 
-    @try_except
     @route('/<int:id>/', methods=['GET'])
+    @try_except
+    @login_required
     def get(self, id=None):
         get_homework, get_lecture, get_class = parse_data_from_query_args(['homework', 'lecture', 'class'])
+        org_teacher_id, = parse_id_from_query_args(['org_teacher_id'])
 
         courses = {}
         q = db.session.query(Course)
         if id is not None:
             q = q.filter_by(id=id)
+
+        if org_teacher_id:
+            q = q.filter(Course.org_teacher_id == org_teacher_id)
 
         for course in q:
             course_obj = course.json
@@ -1176,14 +1258,15 @@ class CourseView(BaseView):
                 courses[clazz.course_id]['classes'].append(clazz.json)
 
         if get_homework:
-            q = db.session.query(Homework, CourseHomework).join(CourseHomework).filter(CourseHomework.course_id == id)
+            q = db.session.query(Homework, CourseHomework).join(CourseHomework).filter(CourseHomework.course_id.in_(course_ids))
             for homework, course_homework in q:
                 obj = homework.json
                 obj['course_homework_id'] = course_homework.id
+                obj['course_lecture_id'] = course_homework.course_lecture_id
                 courses[course_homework.course_id]['homeworks'].append(obj)
 
         if get_lecture:
-            q = db.session.query(Lecture, CourseLecture).join(CourseLecture).filter(CourseLecture.course_id == id)
+            q = db.session.query(Lecture, CourseLecture).join(CourseLecture).filter(CourseLecture.course_id.in_(course_ids))
             for lecture, course_lecture in q:
                 obj = lecture.json
                 obj['course_lecture_id'] = course_lecture.id
@@ -1203,6 +1286,7 @@ class ClassView(BaseView):
     post_keys = ['name', 'start_dt', 'end_dt', 'course_id']
 
     @try_except
+    @login_required
     def index(self):
         course_id, = parse_id_from_query_args(['course_id'])
 
@@ -1330,16 +1414,26 @@ class StudentView(BaseView):
         student_list = []
 
         if not class_id:
-            q = db.session.query(Student)
+            q = db.session.query(User, Student).join(Student)
             if id is not None:
-                q = q.filter_by(id=id)
+                q = q.filter(Student.id == id)
 
-            student_list = [student.json for student in q]
+            for user, student in q:
+                obj = user.json
+                del obj['password']
+                obj['photo_url'] = student.photo_url
+                obj['github_username'] = student.github_username
+
+                student_list.append(obj)
+
 
         else:
-            q = db.session.query(Student, ClassStudent).join(ClassStudent).filter(ClassStudent.class_id==class_id)
-            for student, class_student in q:
-                obj = student.json
+            q = db.session.query(User, Student, ClassStudent).join(User).join(ClassStudent).filter(ClassStudent.class_id==class_id)
+            for user, student, class_student in q:
+                obj = user.json
+                del obj['password']
+                obj['photo_url'] = student.photo_url
+                obj['github_username'] = student.github_username
                 obj['class_student_id'] = class_student.id
                 student_list.append(obj)
 
@@ -1508,6 +1602,53 @@ class StudentView(BaseView):
         return jsonify({"meta": {"len": len(rets)}, "data": rets})
 
 
+
+    @try_except
+    def put(self):
+        return update_user(Student)
+        data = extract_data()
+
+        if not isinstance(data, list):
+            raise UserError("data attribute should be array, not {}".format(type(data)))
+
+        students = []
+        users = []
+        for obj in data:
+            try:
+                id = obj['id']
+            except KeyError:
+                return UserError("PUT requires an id key")
+
+            student = {'id': id}
+            for post_key in Student.post_keys:
+                if post_key in obj:
+                    student[post_key] = obj[post_key]
+
+            user_kwargs = {'id': id}
+            for post_key in User.post_keys:
+                if post_key in obj:
+                    user_kwargs[post_key] = obj[post_key]
+
+            temp_user = create_user(**user_kwargs).json
+            user = {k: v for k, v in temp_user.iteritems() if v is not None}
+
+            # don't update if the model wasn't touched
+            if len(student) > 1:
+                students.append(student)
+
+            if len(user) > 1:
+                users.append(user)
+
+        bulk_update(User, users)
+        bulk_update(Student, students)
+
+
+
+        db.session.commit()
+
+        return jsonify({"meta": {}, "data": {}}), 200
+
+
 class LectureView(BaseView):
     model = Lecture
     post_keys = ['name', 'description']
@@ -1654,15 +1795,18 @@ class HomeworkView(BaseView):
         return jsonify({"meta": {}, "data": ret}), 200
 
     @try_except
+    @login_required
     def put(self):
         return hardcore_update(Homework)
 
+    @login_required
     @try_except
     def delete(self):
         return hardcore_delete(Homework)
 
 
     @try_except
+    @login_required
     def post(self):
         return hardcore_post(Homework)
 
@@ -1775,8 +1919,9 @@ class AttendanceView(BaseView):
 class OrgView(BaseView):
     model = Org
 
-    @try_except
     @route('/<int:id>/', methods=['GET'])
+    @try_except
+    @login_required
     def get(self, id=None):
         get_teacher, = parse_data_from_query_args(['teacher'])
 
@@ -1822,6 +1967,7 @@ class OrgView(BaseView):
 
 
     @try_except
+    @login_required
     def post(self):
         '''
         When a new organization is created:
@@ -1957,7 +2103,7 @@ class OrgView(BaseView):
         for homework in homeworks:
             course_homework = CourseHomework(course_id=homework.course_lecture.course_id,
                                              homework_id=homework.id,
-                                             course_lecture_id=homework.course_lecture.lecture_id)
+                                             course_lecture_id=homework.course_lecture.id)
             course_homeworks.append(course_homework)
 
         db.session.bulk_save_objects(course_homeworks, return_defaults=True)
@@ -1978,9 +2124,9 @@ class OrgView(BaseView):
         default_students = []
         default_student_users = []
         for clazz in default_classes:
-            student = Student(github_username='default-course-mgmt-teacher@{}.com'.format(clazz.course.name))
+            student = Student(github_username='default-course-mgmt-student@{}.com'.format(clazz.course.name))
             user = create_user(first_name='Default', last_name='Default',
-                               email='default-course-mgmt-teacher@{}.com'.format(clazz.course.name),
+                               email='default-course-mgmt-student@{}.com'.format(clazz.course.name),
                                password='default_password',
                                type='student',
                                is_default=True)
@@ -2063,7 +2209,7 @@ class TeacherView(BaseView):
 
 
     @try_except
-    #@login_required
+    @login_required
     @route('/<int:id>/', methods=['GET'])
     def get(self, id=None):
 
@@ -2101,10 +2247,11 @@ class TeacherView(BaseView):
             for user, teacher, org_teacher in q:
                 obj = user.json
                 del obj['password']
-                obj['org_teacher_id'] = org_teacher
+                obj['org_teacher_id'] = org_teacher.id
 
-                teacher_list.append(teacher)
+                teacher_list.append(obj)
 
+        app.logger.debug("Looping teacher list")
         for teacher in teacher_list:
             if get_org:
                 teacher['orgs'] = []
@@ -2130,8 +2277,7 @@ class TeacherView(BaseView):
             for org, org_teacher in q:
                 obj = org.json
                 obj['org_teacher_id'] = org_teacher.id
-
-                teachers[org_teacher.id]['orgs'].append(obj)
+                teachers[org_teacher.teacher_id]['orgs'].append(obj)
 
         if get_course:
             q = db.session.query(Course, OrgTeacher).join(OrgTeacher).filter(OrgTeacher.teacher_id.in_(teacher_ids))
@@ -2139,7 +2285,7 @@ class TeacherView(BaseView):
                 obj = course.json
                 obj['org_teacher_id'] = org_teacher.id
 
-                teachers[org_teacher.id]['courses'].append(obj)
+                teachers[org_teacher.teacher_id]['courses'].append(obj)
         '''
         if get_privilege:
             q = db.session.query(Privilege, OrgTeacherPrivilege).join(OrgTeacherPrivilege).join(OrgTeacher) \
@@ -2167,6 +2313,9 @@ class TeacherView(BaseView):
         '''
         A teacher can be added independently, or be created and added to an Org.
 
+        How do I not declare this as login_required but prevent trolls from making a billion teachers?
+        Perhaps you need to be logged in OR pass in some basic authentication in the header?
+
         If a teacher is to be added to an org, a default teacher's course homework/lectures can be cloned.
         :return:
         '''
@@ -2192,18 +2341,24 @@ class TeacherView(BaseView):
                 teachers.append(teacher)
 
             if 'org_id' in obj:
+                # Todo replace this wil a privilege mechanism
+                check_login()
                 # Add this teacher to an Org
                 teacher.org_id = obj['org_id']
                 if 'clone_org_teacher_id' in obj:
                     teacher.clone_org_teacher_id = obj['clone_org_teacher_id']
                     # Clone the course homework/lecture from this org_teacher_id into this teacher
 
-                # TODO should I raise an error if this isn't present, or is that a valid use case?
+                # TODO should I raise an error if clone_org_teacher_id isn't present, or is that a valid use case?
 
             ordered_teachers.append(teacher)
 
         if users:
-            db.session.bulk_save_objects(users, return_defaults=True)
+            try:
+                db.session.bulk_save_objects(users, return_defaults=True)
+            except IntegrityError as ex:
+                raise UserError(ex.message)
+
             for teacher in teachers:
                 teacher.id = teacher.user.id
                 teacher.first_name = teacher.user.first_name
@@ -2408,11 +2563,70 @@ class TeacherView(BaseView):
             obj['first_name'] = teacher.first_name
             obj['last_name'] = teacher.last_name
             obj['email'] = teacher.email
+            if hasattr(teacher, 'org_teacher'):
+                obj['org_teacher_id'] = teacher.org_teacher.id
+
             ret.append(obj)
 
         db.session.commit()
 
         return jsonify({"meta": {"len": len(teachers)}, "data": ret}), 200
+
+    @try_except
+    def put(self):
+        return update_user(Teacher)
+
+
+class TagView(BaseView):
+    model = Tag
+
+    @route('/<int:id>/', methods=['GET'])
+    @try_except
+    def get(self, id=None):
+        homework_id, = parse_id_from_query_args(['homework_id'])
+        get_homework, = parse_data_from_query_args(['homework'])
+        raise NotImplementedError()
+
+    @try_except
+    def post(self):
+        data = extract_data()
+
+        ordered_tags = []
+
+        # These are the new tags to create
+        tags = []
+
+        for obj in data:
+            tag = Tag()
+            if 'id' in obj:
+                tag = json_to_model(Tag, obj)
+                tags.append(tag)
+
+            if 'homework_id' in obj:
+                tag.homework_id = obj['homework_id']
+
+            ordered_tags.append(tag)
+
+        db.session.bulk_save_objects(tags, return_defaults=True)
+
+        tag_homeworks = []
+        for tag in ordered_tags:
+            if hasattr(tag, 'homework_id'):
+                tag_homework = TagHomework(tag_id=tag.id, homework_id=tag.homework_id)
+                tag_homeworks.append(tag_homework)
+                tag.tag_homework = tag_homework
+
+        if tag_homeworks:
+            db.session.bulk_save_objects(tag_homeworks, return_defaults=True)
+
+        ret = []
+        for tag in ordered_tags:
+            obj = tag.json
+            if hasattr(tag, 'tag_homework'):
+                obj['tag_homework_id'] = tag.tag_homework.id
+            ret.append(obj)
+
+        return jsonify({"meta": {"len": len(ret)}, "data": ret}), 200
 
 
 

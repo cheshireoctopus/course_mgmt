@@ -227,7 +227,7 @@ class User(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
     first_name = db.Column(db.String, nullable=False)
     last_name = db.Column(db.String, nullable=False)
-    email = db.Column(db.String, nullable=False)
+    email = db.Column(db.String, nullable=False, unique=True)
     password = db.Column(db.String, nullable=False)
     is_default = db.Column(db.Boolean, nullable=False, default=False)
     type = db.Column(db.String, nullable=False)
@@ -409,6 +409,8 @@ class Course(BaseModel):
                       db.CheckConstraint("name <> ''"),
                       {'sqlite_autoincrement': True})
 
+    post_keys = ['name', 'org_teacher_id']
+
 
 class Class(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
@@ -420,6 +422,8 @@ class Class(BaseModel):
     __table_args__ = (db.UniqueConstraint('course_id', 'name'),
                       db.CheckConstraint("name <> ''"),
                       {'sqlite_autoincrement': True})
+
+    post_keys = ['name', 'start_dt', 'end_dt', 'course_id']
 
 
 
@@ -438,6 +442,8 @@ class Lecture(BaseModel):
     __table_args__ = (db.CheckConstraint("name <> ''"),
                        {'sqlite_autoincrement': True})
 
+    post_keys = ['name', 'description']
+
 
 
 class Tag(BaseModel):
@@ -446,6 +452,8 @@ class Tag(BaseModel):
 
     __table_args__ = (db.CheckConstraint("name <> ''"),
                       {'sqlite_autoincrement': True})
+
+    post_keys = ['name']
 
 class Homework(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
@@ -457,6 +465,8 @@ class Homework(BaseModel):
 
     __table_args__ = (db.CheckConstraint("name <> ''"),
                       {'sqlite_autoincrement': True})
+
+    post_keys = ['name']
 
 class TagHomework(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
@@ -509,6 +519,8 @@ class Assignment(BaseModel):
 
     __table_args__ = (db.UniqueConstraint('class_student_id', 'class_homework_id'), {'sqlite_autoincrement': True})
 
+    post_keys = ['is_completed']
+
 class Attendance(BaseModel):
     id = db.Column(db.Integer, primary_key=True)
     class_lecture_id = db.Column(db.Integer, db.ForeignKey('class_lecture.id', ondelete='CASCADE'), nullable=False)
@@ -519,5 +531,7 @@ class Attendance(BaseModel):
                       # TODO ? Index it both ways (e.g., include student_id, lecture_id) as per the access patterns
                       )
 
-all_models = [ClassStudent, Attendance, Assignment, ClassHomework, ClassLecture,
+    post_keys = ['did_attend']
+
+all_models = [TagHomework, Tag, ClassStudent, Attendance, Assignment, ClassHomework, ClassLecture,
               CourseHomework, CourseLecture, Class, Student, Homework, Lecture, OrgTeacher, ClassStudentPrivilege, OrgTeacherPrivilege, Privilege, Course, Teacher, User]

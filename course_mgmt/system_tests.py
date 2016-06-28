@@ -1,5 +1,5 @@
 __author__ = 'mmoisen'
-from flask import Flask
+from flask import Flask, session
 from course_mgmt.models import *  # db, all_models
 import unittest
 import requests
@@ -34,6 +34,7 @@ def get_first_id_from_response(r, id_key='id'):
     '''
     return r.json()['data'][0][id_key]
 
+s = requests.session()
 def hit_api(api, data=None, params=None, method='POST'):
     '''
     Utility method to hit any of the APIs
@@ -43,7 +44,8 @@ def hit_api(api, data=None, params=None, method='POST'):
     :param method: 'POST', 'GET', 'PUT', 'DELETE'
     :return: a response object from requests
     '''
-    r = getattr(requests, method.lower())(URL + api, json=data, params=params)
+    #r = getattr(requests, method.lower())(URL + api, json=data, params=params)
+    r = getattr(s, method.lower())(URL + api, json=data, params=params)
     return r
 
 class Lol(object):
@@ -53,6 +55,7 @@ class Lol(object):
 def drop_and_create_db():
 
     if app.config['DATABASE'] == 'postgresql':
+        session.clear()
         delete_db()
 
         index = 1
@@ -87,7 +90,7 @@ class TestLol(unittest.TestCase):
     def test_lol(self):
         drop_and_create_db()
 
-def create_course(name):
+def create_course(org_teacher_id, name):
     '''
     Utility function to create a single course
     '''
@@ -96,6 +99,7 @@ def create_course(name):
     data = {
         'data': [
             {
+                'org_teacher_id': org_teacher_id,
                 'name': name
             }
         ]
@@ -295,7 +299,7 @@ def create_class_homework(class_id, name):
 
     return hit_api(api, data, method=method)
 
-def create_student_independent(first_name, last_name, github_username, email, photo_url):
+def create_student_independent(first_name, last_name, github_username, email, photo_url, password):
     api = '/api/student/'
     method = 'POST'
     data = {
@@ -305,7 +309,8 @@ def create_student_independent(first_name, last_name, github_username, email, ph
                 'last_name': last_name,
                 'github_username': github_username,
                 'email': email,
-                'photo_url': photo_url
+                'photo_url': photo_url,
+                'password': password
             }
         ]
     }
@@ -350,7 +355,7 @@ def add_student_independent_to_class(class_id, student_id):
 
     return hit_api(api, data, method=method)
 
-def create_student_dependent(class_id, first_name, last_name, github_username, email, photo_url):
+def create_student_dependent(class_id, first_name, last_name, github_username, email, photo_url, password):
     api = '/api/student/'
     method = 'POST'
     data = {
@@ -361,7 +366,8 @@ def create_student_dependent(class_id, first_name, last_name, github_username, e
                 'last_name': last_name,
                 'github_username': github_username,
                 'email': email,
-                'photo_url': photo_url
+                'photo_url': photo_url,
+                'password': password
             }
         ]
     }
@@ -559,6 +565,25 @@ def delete_class_lecture(id=None, class_id=None, class_lecture_id=None):
 
     return hit_api(api, data, method=method)
 
+def login(email, password):
+    api = '/api/login/'
+    method = 'POST'
+    data = {
+        'data': {
+            "email": email,
+            "password": password
+        }
+    }
+
+    return hit_api(api, data, method=method)
+
+def logout():
+    api = '/api/login/'
+    method = 'POST'
+    data = {}
+
+    return hit_api(api, data, method=method)
+
 
 class TestHxc(unittest.TestCase):
     def setUp(self):
@@ -576,6 +601,9 @@ class TestHxc(unittest.TestCase):
         r = create_teacher_independent(first_name='Matthew', last_name='Moisen', email='matthewteacher@gmail.com', password='password')
         self.assertEquals(r.status_code, 200)
         admin_teacher_id = get_first_id_from_response(r)
+
+        r = login(email='matthewteacher@gmail.com', password='password')
+        self.assertEquals(r.status_code, 200)
 
         # Create org with admin
         r = create_org(teacher_id=admin_teacher_id, name='Matthews Org')
@@ -602,6 +630,7 @@ class TestAll(unittest.TestCase):
     def setUp(self):
         # Drop and recreate the database
         self.assertEquals(200, drop_and_create_db().status_code)
+        self.maxDiff = None
 
     def assert_data_equals(self, r, **kwargs):
         self.assertEquals(r.status_code, 200)
@@ -613,15 +642,50 @@ class TestAll(unittest.TestCase):
         The purpose of this is to quickly tell if anything major is broken
         :return:
         '''
+
+        # Create admin teacher
+        r = create_teacher_independent(first_name='Matthew', last_name='Moisen', email='matthewteacher@gmail.com', password='password')
+        self.assertEquals(r.status_code, 200)
+        admin_teacher_id = get_first_id_from_response(r)
+
+        # TODO assert data for admin teacher
+
+        r = login(email='matthewteacher@gmail.com', password='password')
+        self.assertEquals(r.status_code, 200)
+
+        # Create org with admin
+        r = create_org(teacher_id=admin_teacher_id, name='Matthews Org')
+        self.assertEquals(r.status_code, 200)
+        org_id = get_first_id_from_response(r)
+        default_teacher_id = r.json()['data'][0]['default_teacher']['id']
+
+        # Todo assert default course, course homework, course lectures exist
+
+
+        # Add new teacher to org and clone default teacher
+        r = create_teacher_dependent(org_id=org_id, clone_org_teacher_id=default_teacher_id, first_name='Chandler', last_name='Moisen', email='chandlerteacher@gmail.com', password='password')
+        self.assertEquals(r.status_code, 200)
+        real_teacher_id = get_first_id_from_response(r)
+        org_teacher_id = get_first_id_from_response(r, id_key='org_teacher_id')
+
+        # TODO assert teacher
+
+        # Logout of teacher admin
+        logout()
+        # Login to real teacher
+        login(email='chandlerteacher@gmail.com', password='password')
+
+        # TODO update teachers and org and stuff
+
         ## Create Course
-        r = create_course(name='Matthew''s Course')
+        r = create_course(org_teacher_id=org_teacher_id, name='Matthew''s Course')
         self.assertEquals(r.status_code, 200)
 
         course_id = get_first_id_from_response(r)
 
         # Get Course
         r = get_course(id=course_id)
-        self.assert_data_equals(r, id=course_id, name='Matthew''s Course')
+        self.assert_data_equals(r, id=course_id, org_teacher_id=org_teacher_id, name='Matthew''s Course')
         #self.assertEquals(r.json()['name'], 'Matthew''s Course')
 
         ## Update Course
@@ -631,7 +695,7 @@ class TestAll(unittest.TestCase):
 
         # Get Course
         r = get_course(id=course_id)
-        self.assert_data_equals(r, id=course_id, name='Chandler''s Course')
+        self.assert_data_equals(r, id=course_id, org_teacher_id=org_teacher_id, name='Chandler''s Course')
 
         ## Create Class
         r = create_class(course_id=course_id, name='Spring 2016', start_dt='2016-01-01T00:00:00.000000Z', end_dt='2016-05-30T00:00:00.000000Z')
@@ -708,7 +772,8 @@ class TestAll(unittest.TestCase):
         ## Create Independent Student and Add to Class
         # Create Independent Student
         r = create_student_independent(first_name='Matthew', last_name='Moisen', github_username='mkmoisen',
-                                       email='mkmoisen@gmail.com', photo_url='http://matthewmoisen.com/pic.jpg')
+                                       email='mkmoisen@gmail.com', photo_url='http://matthewmoisen.com/pic.jpg',
+                                       password='password')
 
         self.assertEquals(r.status_code, 200)
 
@@ -716,9 +781,10 @@ class TestAll(unittest.TestCase):
 
         # Get Student
         r = get_student(student_independent_id)
+        print "\n\nstudent is ", r.json(), '\n\n'
         self.assert_data_equals(r, id=student_independent_id, first_name='Matthew', last_name='Moisen',
                                 github_username='mkmoisen', email='mkmoisen@gmail.com',
-                                photo_url='http://matthewmoisen.com/pic.jpg')
+                                photo_url='http://matthewmoisen.com/pic.jpg', is_default=False, type='student')
 
         # Update Student
         r = update_student(id=student_independent_id, first_name='Chandler', last_name='Moisen', github_username='ches',
@@ -729,7 +795,7 @@ class TestAll(unittest.TestCase):
         r = get_student(student_independent_id)
         self.assert_data_equals(r, id=student_independent_id, first_name='Chandler', last_name='Moisen',
                                 github_username='ches', email='hello@chandlermoisen.com',
-                                photo_url='http://chandlermoisen.com/pic/jpg')
+                                photo_url='http://chandlermoisen.com/pic/jpg', is_default=False, type='student')
 
         # Add Independent Student to Class
         r = add_student_independent_to_class(class_id, student_independent_id)
@@ -739,10 +805,13 @@ class TestAll(unittest.TestCase):
 
         ## Create Dependent Student and Add to Class
         r = create_student_dependent(class_id=class_id, first_name='Chandler', last_name='Moisen', github_username='cheshire',
-                                     email='hello@chandlermoisen.com', photo_url='http://chandlermoinse.com/pic.jpg')
+                                     email='student@chandlermoisen.com', photo_url='http://chandlermoinse.com/pic.jpg',
+                                     password='password')
         self.assertEquals(r.status_code, 200)
 
         class_student_id_2 = get_first_id_from_response(r)
+
+        # Todo assert data for dependent student
 
 
 def create_interference():

@@ -1,9 +1,6 @@
 __author__ = 'mmoisen'
 from flask import Flask, session
-#app = Flask(__name__)
-#app.secret_key = 'abc'
-
-
+from functools import wraps
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.engine import Engine
 from sqlalchemy import event
@@ -49,14 +46,27 @@ db = SQLAlchemy(app)
 app.jinja_env.add_extension('pyjade.ext.jinja.PyJadeExtension')
 
 
+# Front end needs to make a login.jade or some how do it with index
+def login_required_ui(f):
+    @wraps(f)
+    def _login_required_ui(*args, **kwargs):
+        if not session or not 'logged_in' in session or not session['logged_in']:
+            return render_template('login.jade', data={'app': 'courses'})
+        return f(*args, **kwargs)
+
+    return _login_required_ui
+
 # Routes
 @app.route('/')
+@login_required_ui
 def index():
     return render_template('index.jade', data={'app': 'courses'})
 
+@login_required_ui
 @app.route('/class/')
 def classes():
     return render_template('index.jade', data={'app': 'classes'})
+
 
 from course_mgmt.views import *
 
