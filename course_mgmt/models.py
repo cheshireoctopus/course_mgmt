@@ -228,6 +228,7 @@ class User(BaseModel):
     first_name = db.Column(db.String, nullable=False)
     last_name = db.Column(db.String, nullable=False)
     email = db.Column(db.String, nullable=False, unique=True)
+    github_username = db.Column(db.String, unique=True, nullable=False)
     password = db.Column(db.String, nullable=False)
     is_default = db.Column(db.Boolean, nullable=False, default=False)
     type = db.Column(db.String, nullable=False)
@@ -260,7 +261,6 @@ class Student(BaseModel):
         id = db.Column(SMALLINT, db.ForeignKey('user.id', ondelete='CASCADE'), primary_key=True)
     else:
         id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), primary_key=True)
-    github_username = db.Column(db.String, nullable=False)
     photo_url = db.Column(db.String)
 
     __table_args__ = (db.CheckConstraint("github_username <> ''"),

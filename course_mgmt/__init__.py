@@ -68,5 +68,85 @@ def classes():
     return render_template('index.jade', data={'app': 'classes'})
 
 
+from flask import redirect, session
+import uuid
+import requests
+
+def check_github_disabled():
+    github_disabled = False
+    if 'GITHUB_CLIENT_ID' not in app.config:
+        github_disabled = True
+    if 'GITHUB_CLIENT_SECRET' not in app.config:
+        github_disabled = True
+    if 'GITHUB_REDIRECT_URL' not in app.config:
+        github_disabled = True
+
+    if github_disabled:
+        raise ServerError("config must contain both GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET to authenticate with github")
+
+@app.route('/login/github/')
+def github():
+    check_github_disabled()
+    session['github_state'] = str(uuid.uuid4())
+    params = {
+        'client_id': app.config['GITHUB_CLIENT_ID'],
+        'redirect_url': app.config['GITHUB_REDIRECT_URL'],
+        'state': session['github_state'],
+        #'scope': 'user:email'
+
+
+    }
+    params = '?' + '&'.join([key + '=' + val for key, val in params.iteritems()])
+    print params
+    return redirect('https://github.com/login/oauth/authorize' + params)
+
+@app.route('/login/github/redirect/', methods=['GET', 'POST'])
+def github_redirect():
+    check_github_disabled()
+
+    if 'github_state' not in session:
+        raise UserError("Dont hit this URL directly")
+
+    if 'github_state' in session:
+        print "session state is {}".format(session['github_state'])
+    else:
+        print "state not in session nooob"
+
+    state = request.args.get('state', None)
+    code = request.args.get('code', None)
+
+    if not state or not code:
+        raise ServerError("state or code not specified")
+
+    if state != session['github_state']:
+        raise AuthenticationError("session state does not match github state")
+
+    data = {
+        'client_id': app.config['GITHUB_CLIENT_ID'],
+        'client_secret': app.config['GITHUB_CLIENT_SECRET'],
+        'code': code,
+        #'redirect_url': 'lol',
+        'state': session['github_state']
+
+    }
+    headers = {
+        'Accept': 'application/json'
+    }
+    r = requests.post(url='https://github.com/login/oauth/access_token', json=data, headers=headers)
+    print r.json()
+
+    access_token = r.json()['access_token']
+
+
+    a = requests.get(url='https://api.github.com/user/emails?access_token={}'.format(access_token))
+    #a = requests.get(url='https://api.github.com/user?access_token={}'.format(access_token))
+    data = a.json()
+    email = next(d for d in data if d['primary'])['email']
+
+
+
+
+    return email
+
 from course_mgmt.views import *
 
