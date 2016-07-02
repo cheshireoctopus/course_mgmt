@@ -1529,6 +1529,8 @@ class AssignmentView(BaseView):
         elif student_id:
             q = q.filter(Student.id == student_id)
 
+        q = q.order_by(Class.id, ClassHomework.id, ClassStudent.id)
+
         for homework, assignment, student, clazz in q:
                 obj = assignment.json
                 obj['homework'] = homework.json
@@ -1582,6 +1584,8 @@ class AttendanceView(BaseView):
 
         elif student_id:
             q = q.filter(Student.id == student_id)
+
+        q = q.order_by(Class.id, ClassLecture.id, ClassStudent.id)
 
         for lecture, attendance, student, clazz in q:
             obj = attendance.json
