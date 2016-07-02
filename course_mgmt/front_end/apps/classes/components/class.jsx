@@ -2,6 +2,7 @@ var _ = require('underscore')
 var React = require('react')
 var DateTime = require('components/date_time.jsx')
 var UserImage = require('components/user_image.jsx')
+var ClassAttendance = require('classes/components/attendance.jsx')
 var utils = require('utils.babel')
 
 module.exports = React.createClass({
@@ -19,7 +20,8 @@ module.exports = React.createClass({
 		students: React.PropTypes.array.isRequired,
 		showClasses: React.PropTypes.func.isRequired,
 		onEdit: React.PropTypes.func.isRequired,
-		onDelete: React.PropTypes.func.isRequired
+		onDelete: React.PropTypes.func.isRequired,
+		updateAttendance: React.PropTypes.func.isRequired,
 	},
 
 	getInitialState () {
@@ -49,12 +51,14 @@ module.exports = React.createClass({
 				<div className="col-md-12">
 					<ul className="nav nav-tabs">
 						<li  onClick={this.setActiveTab.bind(this, 'students')} className={activeTab === 'students' ? 'active' : null}><a href="javascript:void(0)">Students</a></li>
+						<li onClick={this.setActiveTab.bind(this, 'attendance')} className={activeTab === 'attendance' ? 'active' : null} ><a href="javascript:void(0)">Attendance</a></li>
 						<li onClick={this.setActiveTab.bind(this, 'lectures')} className={activeTab === 'lectures' ? 'active' : null} ><a href="javascript:void(0)">Lectures</a></li>
 						<li onClick={this.setActiveTab.bind(this, 'homework')} className={activeTab === 'homework' ? 'active' : null}><a href="javascript:void(0)">Homework</a></li>
 					</ul>
 					<div className="tab-content">
 					    <div className="tab-pane active">
 							{activeTab === 'students' ? this.renderStudents() : null}
+							{activeTab === 'attendance' ? this.renderAttendance() : null}
 							{activeTab === 'lectures' ? this.renderLectures() : null}
 							{activeTab === 'homework' ? this.renderHomework() : null}
 					    </div>
@@ -101,6 +105,15 @@ module.exports = React.createClass({
 				<tbody>{students}</tbody>
 			</table>
 		)
+	},
+
+	renderAttendance () {
+		return <ClassAttendance
+					attendance={this.props.attendance}
+					students={this.props.students}
+					lectures={this.props.lectures}
+					updateAttendance={this.props.updateAttendance}
+				/>
 	},
 
 	renderLectures () {

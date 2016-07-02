@@ -7,6 +7,7 @@ module.exports = React.createClass({
 	displayName: 'ClassesController',
 
 	propTypes: {
+		attendance: React.PropTypes.array.isRequired,
 		classObj: React.PropTypes.object.isRequired,
 		classes: React.PropTypes.array.isRequired,
 		courses: React.PropTypes.array.isRequired,
@@ -20,6 +21,7 @@ module.exports = React.createClass({
 		studentsByClass: React.PropTypes.array.isRequired,
 		saveClass: React.PropTypes.func.isRequired,
 		onShowForm: React.PropTypes.func.isRequired,
+		updateAttendance: React.PropTypes.func.isRequired,
 	},
 
 	render () {
@@ -38,13 +40,17 @@ module.exports = React.createClass({
 
 	renderClasses () {
 		if (this.props.isLoading) return <h3>Loading...</h3>
-		if (this.props.isShowingClass)
-			return <Class {...this.props.classObj}
-					onEdit={this.props.onEditClass}
-					onDelete={this.props.deleteClass}
-					students={this.props.studentsByClass}
-					showClasses={this.props.showClasses}
+		if (this.props.isShowingClass) {
+			return <Class
+						{...this.props.classObj}
+						attendance={this.props.attendance}
+						onEdit={this.props.onEditClass}
+						onDelete={this.props.deleteClass}
+						students={this.props.studentsByClass}
+						showClasses={this.props.showClasses}
+						updateAttendance={this.props.updateAttendance}
 					/>
+		}
 
 
 		return <Classes

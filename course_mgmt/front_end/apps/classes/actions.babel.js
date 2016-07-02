@@ -12,9 +12,7 @@ module.exports = {
 			$.when(
 				dispatch(fetchClasses()),
 				dispatch(fetchCourses())
-			).then(() => {
-				dispatch(toggleLoading(false))
-			})
+			).then(() => dispatch(toggleLoading(false)))
 		}
 	},
 
@@ -63,13 +61,16 @@ module.exports = {
 		return dispatch => {
 			dispatch(toggleLoading(true))
 
+			// fetch class, students, and attendance
 			$.when(
 				$.get(API.CLASS + classId + '?data=student,homework,lecture'),
-				$.get(API.STUDENT + '?class_id=' + classId)
+				$.get(API.STUDENT + '?class_id=' + classId),
+				$.get(API.ATTENDANCE + '?class_id=' + classId)
 			)
-			.then((classRes, studentRes) => {
+			.then((classRes, studentRes, attendanceRes) => {
 				dispatch(receiveStudents(studentRes[0].data))
 				dispatch(receiveClass(classRes[0].data))
+				dispatch(receiveAttendance(attendanceRes[0].data))
 				dispatch(renderClass())
 				dispatch(toggleLoading(false))
 			})
@@ -84,6 +85,24 @@ module.exports = {
 
 	onShowForm (classObj) {
 		return dispatch => dispatch(renderForm({}))
+	},
+
+	updateAttendance (id, value) {
+		let data = {
+			data: [
+				{
+					id,
+					did_attend: (value === 'true'),
+				}
+			]
+		}
+
+		$.ajax({
+			url: API.ATTENDANCE,
+			type: 'PUT',
+			data: JSON.stringify(data),
+			contentType: 'application/json',
+		})
 	}
 }
 
@@ -151,27 +170,21 @@ function toggleLoading (value) {
 function fetchClass (classId) {
 	return dispatch => {
 		$.get(API.CLASS + classId)
-			.then(res => {
-				dispatch(receiveClass(res.data))
-			})
+			.then(res => dispatch(receiveClass(res.data)))
 	}
 }
 
 function fetchClasses () {
 	return dispatch => {
 		$.get(API.CLASS)
-			.then(res => {
-				dispatch(receiveClasses(res.data))
-			})
+			.then(res => dispatch(receiveClasses(res.data)))
 	}
 }
 
 function fetchCourses () {
 	return dispatch => {
 		$.get(API.COURSE)
-			.then(res => {
-				dispatch(receiveCourses(res.data))
-			})
+			.then(res => dispatch(receiveCourses(res.data)))
 	}
 }
 
@@ -210,6 +223,15 @@ function receiveStudents (students) {
 		type: actions.RECEIVE_STUDENTS,
 		payload: {
 			students: Immutable.fromJS(students),
+		}
+	}
+}
+
+function receiveAttendance (attendance) {
+	return {
+		type: actions.RECEIVE_ATTENDANCE,
+		payload: {
+			attendance: Immutable.fromJS(attendance)
 		}
 	}
 }

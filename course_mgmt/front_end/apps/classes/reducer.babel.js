@@ -2,6 +2,7 @@ var actions = require('classes/constants').ACTIONS
 var Immutable = require('immutable')
 
 let initialState = Immutable.Map({
+	attendance: Immutable.List(),
 	classObj: Immutable.Map(),
 	classes: Immutable.List(),
 	courses: Immutable.List(),
@@ -13,6 +14,8 @@ let initialState = Immutable.Map({
 
 module.exports = (state = initialState, action) => {
 	switch (action.type) {
+		case actions.RECEIVE_ATTENDANCE:
+			return receiveAttendance(state, action.payload)
 		case actions.RECEIVE_CLASS:
 			return receiveClass(state, action.payload)
 		case actions.RECEIVE_CLASSES:
@@ -34,6 +37,15 @@ module.exports = (state = initialState, action) => {
 		default:
 			return state
 	}
+}
+
+// RECEVIE
+function receiveAttendance (state, payload) {
+	let { attendance } = payload
+
+	return state.merge({
+		attendance,
+	})
 }
 
 function receiveClass (state, payload) {
@@ -69,6 +81,7 @@ function receiveStudents (state, payload) {
 	})
 }
 
+// RENDER
 function renderClass (state) {
 	return state.merge({
 		isShowingClass: true,
@@ -77,14 +90,13 @@ function renderClass (state) {
 }
 
 function renderClasses (state) {
+	// reset classObj and attendance
 	return state.merge({
+		classObj: Immutable.Map(),
+		attendance: Immutable.List(),
 		isShowingClass: false,
 		isShowingForm: false,
 	})
-}
-
-function saveForm (state, paylaod) {
-
 }
 
 function renderForm (state, payload) {
@@ -95,6 +107,11 @@ function renderForm (state, payload) {
 		isShowingForm: true,
 		classObj,
 	})
+}
+
+// MISC
+function saveForm (state, paylaod) {
+
 }
 
 function toggleLoading (state, payload) {
