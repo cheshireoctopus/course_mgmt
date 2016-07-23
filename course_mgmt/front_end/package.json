@@ -8,8 +8,8 @@
   },
   "main": "server.js",
   "scripts": {
-    "dev": "nodemon",
-    "bundle": "webpack --progress --colors --watch"
+    "build-dev": "webpack --config webpack_dev.config.js --progress --colors --profile --watch",
+    "build-prod": "webpack --config webpack_prod.config.js --progress --profile --colors"
   },
   "author": "cheshrieoctopus",
   "license": "ISC",

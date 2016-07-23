@@ -1,21 +1,20 @@
 var path = require('path')
 
 module.exports = {
-	devtool: 'eval', // map console errors to file/line number
+	devtool: 'eval', // map console errors to file/line number; explore eval-source-map and source-map
 	entry: {
-		js: './apps/main.babel.js',
+		js: path.join(__dirname, 'apps/main.babel.js'),
 	},
 	output: {
-		path: './build',
+		path: path.join(__dirname, 'build'),
 		filename: 'bundle.js',
 	},
 	module: {
 		loaders: [
 			{
-				__isBabel: true,
 				test: /(\.babel\.js$|\.jsx$)/,
 				exclude: /(node_modules|bower_components)/,
-				loader: 'babel-loader',
+				loader: 'babel',
 				query: {
 					cacheDirectory: true,
 					presets: ['es2015', 'react'],
@@ -50,7 +49,7 @@ module.exports = {
 		],
 	},
 	resolve: {
-		root: path.resolve('./apps'),
+		root: path.resolve(path.join(__dirname, 'apps')),
 		extensions: ['', '.js', '.jsx', '.json']
-	}
+	},
 }
