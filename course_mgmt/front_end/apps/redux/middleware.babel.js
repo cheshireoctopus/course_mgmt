@@ -40,4 +40,10 @@ const thunk = store => next => action =>
     action(store.dispatch, store.getState) :
     next(action)
 
-module.exports = [logger, crashReporter, thunk]
+module.exports = () => {
+  let middleware = [thunk]
+  if (process.env.NODE_ENV !== 'production') middleware.push[logger, crashReporter]
+
+  return middleware
+}
+

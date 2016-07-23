@@ -1,12 +1,6 @@
 var path = require('path')
 var webpack = require('webpack')
 
-var nodeEnvPlugin = new webpack.DefinePlugin({
-	'process.env': {
-		'NODE_ENV': JSON.stringify('production')
-	}
-})
-
 module.exports = {
 	devtool: 'cheap-module-source-map',
 	entry: {
@@ -59,5 +53,16 @@ module.exports = {
 		root: path.resolve(path.join(__dirname, 'apps')),
 		extensions: ['', '.js', '.jsx', '.json']
 	},
-	plugins: [nodeEnvPlugin]
+	plugins: [
+		new webpack.DefinePlugin({
+			'process.env': {
+				'NODE_ENV': JSON.stringify('production')
+			}
+		}),
+		new webpack.optimize.UglifyJsPlugin({
+			compress: {
+				warnings: false,
+			}
+		}),
+	]
 }
